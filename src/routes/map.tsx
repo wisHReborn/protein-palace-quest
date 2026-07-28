@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toggleFullscreen } from "@/lib/fullscreen";
+import { useMultiplayer } from "@/lib/multiplayer-store";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useProgress, usePlayerAvatar, usePlayerName, usePlays } from "@/lib/game-store";
 import { ZONES, PRESET_AVATARS } from "@/lib/game-data";
@@ -50,6 +51,23 @@ export function OverworldMapPage() {
   const [playerPos, setPlayerPos] = useState<{ x: number; y: number }>({ x: 480, y: 350 });
   const [isWalking, setIsWalking] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Live Multiplayer Chat State
+  const [chatInput, setChatInput] = useState("");
+
+  const { remotePlayers, sendMove, sendChat } = useMultiplayer({
+    name: playerName,
+    avatar: playerAvatar,
+    x: playerPos.x,
+    y: playerPos.y,
+    direction: "down",
+    zone: "overworld",
+  });
+
+  const sendMoveRef = useRef(sendMove);
+  useEffect(() => {
+    sendMoveRef.current = sendMove;
+  }, [sendMove]);
 
   // Click / Touch indicator marker
   const [clickMarker, setClickMarker] = useState<{ x: number; y: number; id: number } | null>(null);
@@ -241,6 +259,7 @@ export function OverworldMapPage() {
       if (nx !== playerPosRef.current.x || ny !== playerPosRef.current.y) {
         playerPosRef.current = { x: nx, y: ny };
         setPlayerPos({ x: nx, y: ny });
+        sendMoveRef.current(nx, ny, "down", moving, "overworld");
         checkBuildingCollision(nx, ny);
         checkNpcProximity(nx, ny);
       }
@@ -391,6 +410,12 @@ export function OverworldMapPage() {
           >
             🏆 อันดับผู้เล่น
           </button>
+
+          {/* Online Players Counter */}
+          <div className="flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-1 text-[11px] md:text-xs font-black text-emerald-400 border border-emerald-500/40 shadow-lg backdrop-blur animate-pulse">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span>ออนไลน์ {remotePlayers.length + 1} คน</span>
+          </div>
 
           <div className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-black text-amber-600 shadow-lg backdrop-blur">
             ⭐ {totalStars}
