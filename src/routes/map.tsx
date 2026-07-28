@@ -486,15 +486,17 @@ export function OverworldMapPage() {
         </button>
       </div>
 
-      {/* Fullscreen Canvas */}
-      <div
-        ref={containerRef}
-        onPointerDown={handleMapPointerDown}
-        className="relative w-full h-full cursor-pointer overflow-hidden bg-cover bg-center gpu-accelerated"
-        style={{
-          backgroundImage: `url('/protein_world_map.jpg')`,
-        }}
-      >
+      {/* Aspect Ratio Preserved RPG Map Canvas (Zero Cropping across all screen sizes) */}
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950 p-1 sm:p-2 md:p-3">
+        <div
+          ref={containerRef}
+          onPointerDown={handleMapPointerDown}
+          className="relative w-full h-full max-w-full max-h-full aspect-[960/600] cursor-pointer overflow-hidden shadow-2xl gpu-accelerated bg-no-repeat bg-center rounded-2xl border border-pink-500/30"
+          style={{
+            backgroundImage: `url('/protein_world_map.jpg')`,
+            backgroundSize: "100% 100%",
+          }}
+        >
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30 pointer-events-none" />
 
         {/* Touch Target Indicator Ring */}
@@ -753,6 +755,7 @@ export function OverworldMapPage() {
           </button>
         </div>
       </div>
+    </div>
 
       {/* Daily Quest Log Modal */}
       {showQuestLog && (
