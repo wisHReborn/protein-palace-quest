@@ -729,6 +729,304 @@ function KahootZoneEditor({
   );
 }
 
+function ChestsTab() {
+  const [data, save] = useGameData();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
+
+  const chestQs = data.chestQuestions || defaultData.chestQuestions;
+  const chestSett = data.settings?.chest || defaultData.settings.chest;
+
+  // New question state
+  const [newQPrompt, setNewQPrompt] = useState("");
+  const [newOptA, setNewOptA] = useState("");
+  const [newOptB, setNewOptB] = useState("");
+  const [newOptC, setNewOptC] = useState("");
+  const [newOptD, setNewOptD] = useState("");
+  const [newCorrect, setNewCorrect] = useState(0);
+  const [newPoints, setNewPoints] = useState(25);
+  const [newExplanation, setNewExplanation] = useState("");
+
+  const handleOpenAddModal = () => {
+    setNewQPrompt("");
+    setNewOptA("");
+    setNewOptB("");
+    setNewOptC("");
+    setNewOptD("");
+    setNewCorrect(0);
+    setNewPoints(25);
+    setNewExplanation("");
+    setShowAddModal(true);
+  };
+
+  const handleSaveNewQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQPrompt.trim()) return;
+
+    const newQ: KahootQ = {
+      id: `q_c_${Date.now()}`,
+      prompt: newQPrompt.trim(),
+      options: [newOptA.trim(), newOptB.trim(), newOptC.trim(), newOptD.trim()],
+      correctIndex: newCorrect,
+      difficulty: "medium",
+      points: newPoints,
+      explanation: newExplanation.trim(),
+      extraVisual: "🧰",
+    };
+
+    const updatedChestQs = [...chestQs, newQ];
+    save({ ...data, chestQuestions: updatedChestQs });
+    setShowAddModal(false);
+
+    await addChestQuestionD1(newQ);
+  };
+
+  const confirmDeleteQuestion = async () => {
+    if (deletingIndex === null) return;
+    const targetQ = chestQs[deletingIndex];
+    const updatedList = chestQs.filter((_, idx) => idx !== deletingIndex);
+    save({ ...data, chestQuestions: updatedList });
+    setDeletingIndex(null);
+
+    if (targetQ?.id) {
+      await deleteQuestionD1(targetQ.id);
+    }
+  };
+
+  const handleUpdateCooldown = (cooldownSec: number) => {
+    save({
+      ...data,
+      settings: {
+        ...data.settings,
+        chest: { ...chestSett, cooldownSec },
+      },
+    });
+  };
+
+  const handleUpdateRewardPoints = (rewardPoints: number) => {
+    save({
+      ...data,
+      settings: {
+        ...data.settings,
+        chest: { ...chestSett, rewardPoints },
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Cooldown Settings Card */}
+      <div className="rounded-3xl bg-slate-900/90 p-6 border-2 border-amber-500/40 backdrop-blur shadow-2xl space-y-4">
+        <h2 className="text-lg font-black text-amber-300 flex items-center gap-2">
+          <span>⚙️</span> ตั้งค่าคูลดาวน์กล่องสมบัติชีวะ & คะแนนรางวัล
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-amber-500/30 bg-slate-950 p-4 space-y-2">
+            <label className="text-xs font-bold text-amber-300 block">
+              ⏱️ เวลาคูลดาวน์กล่องสมบัติเมื่อเปิดแล้ว (นาที):
+            </label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                max="60"
+                className={inp}
+                value={Math.round((chestSett.cooldownSec / 60) * 10) / 10}
+                onChange={(e) => handleUpdateCooldown(Math.max(10, Math.round(Number(e.target.value) * 60)))}
+              />
+              <span className="text-xs font-bold text-slate-400 whitespace-nowrap">นาที ({chestSett.cooldownSec} วินาที)</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              เมื่อผู้เล่นตอบคำถามเปิดกล่องสมบัติ กล่องจะติดสถานะคูลดาวน์ดูดาวตามเวลาที่กำหนดนี้ (ตั้งต้น 3 นาที)
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-500/30 bg-slate-950 p-4 space-y-2">
+            <label className="text-xs font-bold text-amber-300 block">
+              💎 คะแนนรางวัลเมื่อตอบถูก (Points per Chest):
+            </label>
+            <input
+              type="number"
+              min="5"
+              max="500"
+              className={inp}
+              value={chestSett.rewardPoints}
+              onChange={(e) => handleUpdateRewardPoints(Number(e.target.value))}
+            />
+            <p className="text-[11px] text-slate-400">
+              คะแนนสะสมที่ผู้เล่นจะได้รับเมื่อตอบคำถามกล่องสมบัติถูกสำเร็จ
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Questions Management */}
+      <div className="rounded-3xl bg-slate-900/90 p-6 border-2 border-amber-500/30 backdrop-blur shadow-2xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between border-2 border-amber-500/40 bg-slate-950 p-4 rounded-2xl gap-3">
+          <div>
+            <div className="text-xs font-black text-amber-400 uppercase tracking-wider">🧰 PROTEIN CHEST CMS</div>
+            <h2 className="text-lg font-black text-white">คลังคำถามโปรตีนสำหรับกล่องสมบัติ ({chestQs.length} ข้อ)</h2>
+          </div>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-6 py-3 text-sm font-black shadow-2xl shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white/20 flex items-center gap-2"
+          >
+            <span>➕</span>
+            <span>เพิ่มโจทย์กล่องสมบัติข้อใหม่</span>
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {chestQs.map((q, qIdx) => (
+            <div key={q.id} className="rounded-2xl border-2 border-amber-500/30 bg-slate-950 p-5 space-y-4 shadow-inner">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="font-black text-sm text-amber-300 flex items-center gap-2">
+                  <span>โจทย์กล่องสมบัติข้อที่ {qIdx + 1}</span>
+                  <span className="text-xs text-slate-500 font-mono">(ID: {q.id})</span>
+                </div>
+                <button
+                  onClick={() => setDeletingIndex(qIdx)}
+                  className="rounded-full bg-rose-950/80 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30 hover:bg-rose-900 cursor-pointer"
+                >
+                  🗑️ ลบโจทย์ข้อนี้
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-amber-300 block mb-1">คำถามประจำกล่อง:</label>
+                <input
+                  className={inp}
+                  value={q.prompt}
+                  onChange={(e) => {
+                    const list = [...chestQs];
+                    list[qIdx] = { ...q, prompt: e.target.value };
+                    save({ ...data, chestQuestions: list });
+                    updateQuestionD1(q.id, "chest", list[qIdx]);
+                  }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {q.options.map((opt, optIdx) => (
+                  <div key={optIdx} className="flex items-center gap-2 rounded-xl bg-slate-900 p-2 border border-white/10">
+                    <span className="font-mono font-bold text-amber-400">{["🔴 A", "🔷 B", "🟡 C", "🟢 D"][optIdx]}</span>
+                    <input
+                      className={inp}
+                      value={opt}
+                      onChange={(e) => {
+                        const opts = [...q.options] as [string, string, string, string];
+                        opts[optIdx] = e.target.value;
+                        const list = [...chestQs];
+                        list[qIdx] = { ...q, options: opts };
+                        save({ ...data, chestQuestions: list });
+                        updateQuestionD1(q.id, "chest", list[qIdx]);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="text-xs font-bold text-amber-300 block mb-1">ข้อที่ถูกต้อง:</label>
+                  <select
+                    className={inp}
+                    value={q.correctIndex}
+                    onChange={(e) => {
+                      const list = [...chestQs];
+                      list[qIdx] = { ...q, correctIndex: Number(e.target.value) };
+                      save({ ...data, chestQuestions: list });
+                      updateQuestionD1(q.id, "chest", list[qIdx]);
+                    }}
+                  >
+                    <option value={0}>🔴 ข้อ A ถูกต้อง</option>
+                    <option value={1}>🔷 ข้อ B ถูกต้อง</option>
+                    <option value={2}>🟡 ข้อ C ถูกต้อง</option>
+                    <option value={3}>🟢 ข้อ D ถูกต้อง</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-amber-300 block mb-1">คำอธิบายเฉลย:</label>
+                  <input
+                    className={inp}
+                    value={q.explanation}
+                    onChange={(e) => {
+                      const list = [...chestQs];
+                      list[qIdx] = { ...q, explanation: e.target.value };
+                      save({ ...data, chestQuestions: list });
+                      updateQuestionD1(q.id, "chest", list[qIdx]);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal Add Question */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="rounded-3xl bg-slate-900 border-3 border-amber-400 max-w-xl w-full p-6 relative shadow-2xl">
+            <button onClick={() => setShowAddModal(false)} className="absolute right-4 top-4 font-bold text-amber-300">✕</button>
+            <h3 className="font-black text-amber-300 text-xl mb-4">➕ เพิ่มโจทย์กล่องสมบัติชีวะข้อใหม่</h3>
+
+            <form onSubmit={handleSaveNewQuestion} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-amber-300 block mb-1">คำถามประจำกล่องสมบัติ:</label>
+                <textarea className={inp} rows={2} value={newQPrompt} onChange={(e) => setNewQPrompt(e.target.value)} required />
+              </div>
+
+              <div className="space-y-2">
+                <input className={inp} value={newOptA} onChange={(e) => setNewOptA(e.target.value)} placeholder="ตัวเลือก A" required />
+                <input className={inp} value={newOptB} onChange={(e) => setNewOptB(e.target.value)} placeholder="ตัวเลือก B" required />
+                <input className={inp} value={newOptC} onChange={(e) => setNewOptC(e.target.value)} placeholder="ตัวเลือก C" required />
+                <input className={inp} value={newOptD} onChange={(e) => setNewOptD(e.target.value)} placeholder="ตัวเลือก D" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-amber-300 block mb-1">ข้อที่ถูกต้อง:</label>
+                  <select className={inp} value={newCorrect} onChange={(e) => setNewCorrect(Number(e.target.value))}>
+                    <option value={0}>🔴 ข้อ A ถูกต้อง</option>
+                    <option value={1}>🔷 ข้อ B ถูกต้อง</option>
+                    <option value={2}>🟡 ข้อ C ถูกต้อง</option>
+                    <option value={3}>🟢 ข้อ D ถูกต้อง</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-amber-300 block mb-1">คำอธิบายเฉลย:</label>
+                  <input className={inp} value={newExplanation} onChange={(e) => setNewExplanation(e.target.value)} placeholder="เฉลยคำตอบ..." required />
+                </div>
+              </div>
+
+              <button type="submit" className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 font-black text-slate-950 shadow-xl cursor-pointer">
+                💾 บันทึกโจทย์กล่องสมบัติข้อใหม่
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deletingIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="rounded-3xl bg-slate-900 border-3 border-rose-500 max-w-md w-full p-6 text-center space-y-4">
+            <h3 className="font-black text-white text-xl">ยืนยันการลบโจทย์กล่องสมบัติ?</h3>
+            <p className="text-xs text-slate-400">คุณแน่ใจหรือไม่ว่าต้องการลบโจทย์กล่องสมบัติข้อที่ #{deletingIndex + 1}?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingIndex(null)} className="w-1/2 rounded-2xl bg-slate-800 text-slate-300 py-2.5 font-bold">ยกเลิก</button>
+              <button onClick={confirmDeleteQuestion} className="w-1/2 rounded-2xl bg-rose-950 text-rose-300 border border-rose-500/50 py-2.5 font-black">🗑️ ยืนยันลบ</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab() {
   const [data, save] = useGameData();
 
