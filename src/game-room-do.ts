@@ -38,20 +38,24 @@ export class GameRoomDO extends DurableObject {
 
       let state = ws.deserializeAttachment() as PlayerState | null;
 
-      if (data.type === "join") {
+      // Auto-register state if missing or explicitly joining
+      if (!state || data.type === "join") {
         state = {
-          id: data.id || `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          name: data.name || "นักชีววิทยา",
-          avatar: data.avatar || "/avatars/biologist_male.jpg",
-          rx: data.rx ?? 0.4,
-          ry: data.ry ?? 0.45,
-          direction: data.direction || "down",
-          isMoving: false,
-          zone: data.zone || "overworld",
+          id: data.id || state?.id || `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          name: data.name || state?.name || "นักชีววิทยา",
+          avatar: data.avatar || state?.avatar || "/avatars/biologist_male.jpg",
+          rx: data.rx ?? state?.rx ?? 0.5,
+          ry: data.ry ?? state?.ry ?? 0.58,
+          direction: data.direction || state?.direction || "down",
+          isMoving: !!data.isMoving,
+          zone: data.zone || state?.zone || "overworld",
         };
         ws.serializeAttachment(state);
         this.broadcastState();
-      } else if (data.type === "move" && state) {
+        return;
+      }
+
+      if (data.type === "move") {
         state.rx = data.rx ?? state.rx;
         state.ry = data.ry ?? state.ry;
         state.direction = data.direction || state.direction;
@@ -60,7 +64,7 @@ export class GameRoomDO extends DurableObject {
 
         ws.serializeAttachment(state);
         this.broadcastState();
-      } else if (data.type === "chat" && state) {
+      } else if (data.type === "chat") {
         state.chatMsg = String(data.text).slice(0, 100);
         state.chatTime = Date.now();
 

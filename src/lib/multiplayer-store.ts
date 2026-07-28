@@ -14,12 +14,16 @@ let remotePlayersMap: Map<string, RemotePlayer> = new Map();
 export function getMyPlayerId(): string {
   if (typeof window === "undefined") return "p_ssr";
   if (!currentMyId) {
-    const cached = sessionStorage.getItem("pw_session_id");
-    if (cached) {
-      currentMyId = cached;
-    } else {
+    try {
+      const cached = sessionStorage.getItem("pw_session_id");
+      if (cached) {
+        currentMyId = cached;
+      } else {
+        currentMyId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        sessionStorage.setItem("pw_session_id", currentMyId);
+      }
+    } catch {
       currentMyId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      sessionStorage.setItem("pw_session_id", currentMyId);
     }
   }
   return currentMyId;
@@ -45,19 +49,21 @@ export function useMultiplayer(myPlayerInfo: {
     const myId = getMyPlayerId();
 
     function sendJoin(ws: WebSocket) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "join",
-            id: myId,
-            name: infoRef.current.name,
-            avatar: infoRef.current.avatar,
-            rx: infoRef.current.rx,
-            ry: infoRef.current.ry,
-            direction: infoRef.current.direction,
-            zone: infoRef.current.zone,
-          })
-        );
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(
+            JSON.stringify({
+              type: "join",
+              id: myId,
+              name: infoRef.current.name,
+              avatar: infoRef.current.avatar,
+              rx: infoRef.current.rx,
+              ry: infoRef.current.ry,
+              direction: infoRef.current.direction,
+              zone: infoRef.current.zone,
+            })
+          );
+        } catch {}
       }
     }
 
@@ -121,13 +127,15 @@ export function useMultiplayer(myPlayerInfo: {
 
         ws.onclose = () => {
           wsInstance = null;
-          setTimeout(connect, 1500);
+          setTimeout(connect, 1000);
         };
 
         ws.onerror = () => {
           wsInstance = null;
         };
-      } catch {}
+      } catch {
+        wsInstance = null;
+      }
     }
 
     const handleSub = (list: RemotePlayer[]) => {
@@ -140,27 +148,47 @@ export function useMultiplayer(myPlayerInfo: {
 
     connect();
 
-    // Heartbeat ping & re-join sync every 3 seconds
+    // iPadOS / Mobile Safari Tab Wakeup & Network Handlers
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        connect();
+      }
+    };
+    const handleOnline = () => {
+      connect();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
+    // Heartbeat ping & re-join sync every 2.5 seconds for iPadOS/iOS Safari
     const heartbeat = setInterval(() => {
       if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-        wsInstance.send(
-          JSON.stringify({
-            type: "move",
-            rx: Number(infoRef.current.rx.toFixed(4)),
-            ry: Number(infoRef.current.ry.toFixed(4)),
-            direction: infoRef.current.direction,
-            isMoving: false,
-            zone: infoRef.current.zone,
-          })
-        );
+        try {
+          wsInstance.send(
+            JSON.stringify({
+              type: "move",
+              rx: Number(infoRef.current.rx.toFixed(4)),
+              ry: Number(infoRef.current.ry.toFixed(4)),
+              direction: infoRef.current.direction,
+              isMoving: false,
+              zone: infoRef.current.zone,
+            })
+          );
+        } catch {
+          wsInstance = null;
+          connect();
+        }
       } else {
         connect();
       }
-    }, 3000);
+    }, 2500);
 
     return () => {
       subscribers.delete(handleSub);
       clearInterval(heartbeat);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
     };
   }, []);
 
@@ -170,27 +198,31 @@ export function useMultiplayer(myPlayerInfo: {
     lastMoveSentRef.current = now;
 
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-      wsInstance.send(
-        JSON.stringify({
-          type: "move",
-          rx: Number(rx.toFixed(4)),
-          ry: Number(ry.toFixed(4)),
-          direction,
-          isMoving,
-          zone,
-        })
-      );
+      try {
+        wsInstance.send(
+          JSON.stringify({
+            type: "move",
+            rx: Number(rx.toFixed(4)),
+            ry: Number(ry.toFixed(4)),
+            direction,
+            isMoving,
+            zone,
+          })
+        );
+      } catch {}
     }
   };
 
   const sendChat = (text: string) => {
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN && text.trim()) {
-      wsInstance.send(
-        JSON.stringify({
-          type: "chat",
-          text: text.trim(),
-        })
-      );
+      try {
+        wsInstance.send(
+          JSON.stringify({
+            type: "chat",
+            text: text.trim(),
+          })
+        );
+      } catch {}
     }
   };
 

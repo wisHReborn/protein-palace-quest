@@ -441,8 +441,8 @@ export function OverworldMapPage() {
         {isMusicPlaying ? "🎵" : "🔇"}
       </button>
 
-      {/* Touch D-Pad Overlay */}
-      <div className="absolute bottom-4 left-4 z-40 flex flex-col items-center gap-1 touch-none opacity-80 hover:opacity-100 transition-opacity scale-90 sm:scale-100 origin-bottom-left md:hidden">
+      {/* Touch D-Pad Overlay (Visible on Mobile & iPad) */}
+      <div className="absolute bottom-4 left-4 z-40 flex flex-col items-center gap-1 touch-none opacity-80 hover:opacity-100 transition-opacity scale-90 sm:scale-100 origin-bottom-left lg:hidden">
         <button
           onTouchStart={() => setDpad(0, -1)}
           onTouchEnd={() => setDpad(0, 0)}
