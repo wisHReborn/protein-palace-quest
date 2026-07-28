@@ -2,8 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toggleFullscreen } from "@/lib/fullscreen";
 import { useMultiplayer } from "@/lib/multiplayer-store";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useProgress, usePlayerAvatar, usePlayerName, usePlays } from "@/lib/game-store";
-import { ZONES, PRESET_AVATARS } from "@/lib/game-data";
+import { useProgress, usePlayerAvatar, usePlayerName, usePlays, useGameData } from "@/lib/game-store";
+import { ZONES, PRESET_AVATARS, defaultData, type KahootQ } from "@/lib/game-data";
 import { rpgAudio } from "@/lib/audio-player";
 
 export const Route = createFileRoute("/map")({
@@ -28,11 +28,27 @@ type NPC = {
   role: string;
 };
 
+export type ChestItem = {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  icon: string;
+};
+
+export const CHESTS: ChestItem[] = [
+  { id: "chest_1", name: "กล่องสมบัติชีวะ #1 (ป่าโครงสร้าง)", x: 340, y: 140, icon: "🧰" },
+  { id: "chest_2", name: "กล่องสมบัติชีวะ #2 (ป่าพับม้วน)", x: 620, y: 140, icon: "🎁" },
+  { id: "chest_3", name: "กล่องสมบัติชีวะ #3 (ริมบ่อเอนไซม์)", x: 340, y: 490, icon: "📦" },
+  { id: "chest_4", name: "กล่องสมบัติชีวะ #4 (สวนภูมิคุ้มกัน)", x: 620, y: 490, icon: "💎" },
+];
+
 export function OverworldMapPage() {
-  const [progress] = useProgress();
+  const [progress, saveProgress] = useProgress();
   const [playerAvatar, setPlayerAvatar] = usePlayerAvatar();
   const [playerName] = usePlayerName();
   const [plays] = usePlays();
+  const [gameData] = useGameData();
   const nav = useNavigate();
 
   const [activeZone, setActiveZone] = useState<(typeof ZONES)[number] | null>(null);
@@ -40,6 +56,73 @@ export function OverworldMapPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showQuestLog, setShowQuestLog] = useState(false);
   const [activeNpc, setActiveNpc] = useState<NPC | null>(null);
+
+  // Protein Treasure Chests State
+  const [chestCooldowns, setChestCooldowns] = useState<Record<string, number>>({});
+  const [activeChest, setActiveChest] = useState<{ chest: ChestItem; question: KahootQ } | null>(null);
+  const [selectedChestOption, setSelectedChestOption] = useState<number | null>(null);
+  const [chestAnswered, setChestAnswered] = useState<{ isCorrect: boolean; rewardPoints: number } | null>(null);
+  const [nowTime, setNowTime] = useState<number>(Date.now());
+
+  // Load chest cooldowns from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("pw_chest_cooldowns");
+      if (stored) setChestCooldowns(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  // Live timer tick for chest cooldowns
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleOpenChest = (chest: ChestItem) => {
+    const cdUntil = chestCooldowns[chest.id] || 0;
+    if (cdUntil > Date.now()) return;
+
+    const qPool = gameData.chestQuestions?.length ? gameData.chestQuestions : defaultData.chestQuestions;
+    const randomQ = qPool[Math.floor(Math.random() * qPool.length)];
+
+    setActiveChest({ chest, question: randomQ });
+    setSelectedChestOption(null);
+    setChestAnswered(null);
+    rpgAudio.playSfx("click");
+  };
+
+  const handleAnswerChest = (optionIndex: number) => {
+    if (!activeChest || selectedChestOption !== null) return;
+
+    setSelectedChestOption(optionIndex);
+    const isCorrect = optionIndex === activeChest.question.correctIndex;
+    const cooldownSec = gameData.settings?.chest?.cooldownSec || 180;
+    const rewardPoints = isCorrect ? (activeChest.question.points || gameData.settings?.chest?.rewardPoints || 50) : 0;
+
+    if (isCorrect) {
+      rpgAudio.playSfx("correct");
+      saveProgress((prev) => ({
+        ...prev,
+        scores: {
+          ...prev.scores,
+          structural: (prev.scores.structural || 0) + rewardPoints,
+        },
+      }));
+    } else {
+      rpgAudio.playSfx("wrong");
+    }
+
+    setChestAnswered({ isCorrect, rewardPoints });
+
+    const cdEndTime = Date.now() + cooldownSec * 1000;
+    setChestCooldowns((prev) => {
+      const next = { ...prev, [activeChest.chest.id]: cdEndTime };
+      try {
+        localStorage.setItem("pw_chest_cooldowns", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Audio state (Default: Muted/Stopped until player clicks play button)
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -671,6 +754,76 @@ export function OverworldMapPage() {
                   }`}
                 >
                   {isNear ? "✨ เล่นเลย" : `ด่านที่ ${idx + 1}`}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* 🧰 Protein Treasure Chests (4 Spawns) */}
+        {CHESTS.map((chest) => {
+          const cdUntil = chestCooldowns[chest.id] || 0;
+          const isCooldown = cdUntil > nowTime;
+          const remainSec = Math.max(0, Math.ceil((cdUntil - nowTime) / 1000));
+          const mins = Math.floor(remainSec / 60);
+          const secs = remainSec % 60;
+          const timeStr = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+          const chestPx = (chest.x / 960) * mapBounds.w;
+          const chestPy = (chest.y / 600) * mapBounds.h;
+          const dist = Math.hypot(playerPos.x - chest.x, playerPos.y - chest.y);
+          const isNear = dist < 70;
+
+          return (
+            <div
+              key={chest.id}
+              onClick={() => handleOpenChest(chest)}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 z-15 group ${
+                isCooldown ? "opacity-75" : "hover:scale-115 active:scale-95"
+              }`}
+              style={{
+                left: `${chestPx}px`,
+                top: `${chestPy}px`,
+              }}
+            >
+              {/* Glowing Energy Aura when Available */}
+              {!isCooldown && (
+                <div className="absolute inset-0 rounded-full bg-amber-400/40 blur-md animate-pulse group-hover:bg-amber-300/60" />
+              )}
+
+              <div className="relative flex flex-col items-center">
+                {/* Chest Status Label Badge */}
+                <div
+                  className={`mb-1 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] md:text-[11px] font-black shadow-2xl border backdrop-blur-md whitespace-nowrap ${
+                    isCooldown
+                      ? "bg-slate-950/90 text-amber-300 border-amber-500/50"
+                      : isNear
+                      ? "bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 border-white animate-bounce"
+                      : "bg-slate-900/90 text-amber-200 border-amber-400/60"
+                  }`}
+                >
+                  {isCooldown ? (
+                    <>
+                      <span>⏳ คูลดาวน์</span>
+                      <span className="font-mono text-amber-400">{timeStr}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{chest.icon}</span>
+                      <span>{isNear ? "✨ แตะเปิดกล่องสมบัติ!" : chest.name}</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Chest Icon Asset */}
+                <div
+                  className={`relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl border-2 text-2xl sm:text-3xl shadow-2xl transition-transform ${
+                    isCooldown
+                      ? "bg-slate-900/90 border-slate-700 text-slate-400"
+                      : "bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 border-white text-white drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]"
+                  }`}
+                >
+                  {isCooldown ? "🔒" : "🧰"}
                 </div>
               </div>
             </div>
