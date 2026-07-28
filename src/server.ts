@@ -49,6 +49,28 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// ─────────────── D1 / KV Binding Resolvers ───────────────
+
+function getD1Database(env: any, request: Request): D1Database | undefined {
+  return (
+    env?.DB ||
+    env?.protein_world_db ||
+    (env as any)?.env?.DB ||
+    (request as any)?.env?.DB ||
+    (globalThis as any)?.DB ||
+    (globalThis as any)?.protein_world_db
+  );
+}
+
+function getKVNamespace(env: any, request: Request): KVNamespace | undefined {
+  return (
+    env?.GAME_KV ||
+    (env as any)?.env?.GAME_KV ||
+    (request as any)?.env?.GAME_KV ||
+    (globalThis as any)?.GAME_KV
+  );
+}
+
 // ─────────────── D1 SQLite Database Helpers ───────────────
 
 const CORS_HEADERS = {
@@ -111,7 +133,7 @@ async function loadGameDataFromD1(db: D1Database): Promise<GameData> {
       }
     }
   } else {
-    // Fallback to default data if empty
+    // If table is empty, return defaultData
     return defaultData;
   }
 
@@ -145,8 +167,18 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    const db: D1Database | undefined = env?.DB || (globalThis as any)?.DB;
-    const kv: KVNamespace | undefined = env?.GAME_KV || (globalThis as any)?.GAME_KV;
+    const db = getD1Database(env, request);
+    const kv = getKVNamespace(env, request);
+
+    // ─── GET /api/debug-env ───
+    if (path === "/api/debug-env") {
+      return jsonResponse({
+        envKeys: env ? Object.keys(env) : [],
+        hasDB: !!db,
+        hasKV: !!kv,
+        dbMethods: db ? Object.keys(db) : [],
+      });
+    }
 
     // ─── GET /api/game-data ───
     if (path === "/api/game-data" && request.method === "GET") {
@@ -207,7 +239,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
         const updatedData = db ? await loadGameDataFromD1(db) : defaultData;
         await syncGameDataToKV(db, kv, updatedData);
 
-        return jsonResponse({ ok: true, id: qId, data: updatedData });
+        return jsonResponse({ ok: true, id: qId, data: updatedData, dbUsed: !!db });
       } catch (e) {
         console.error("POST /api/questions error:", e);
         return jsonResponse({ error: String(e) }, 500);
@@ -231,7 +263,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
         const updatedData = db ? await loadGameDataFromD1(db) : defaultData;
         await syncGameDataToKV(db, kv, updatedData);
 
-        return jsonResponse({ ok: true, data: updatedData });
+        return jsonResponse({ ok: true, data: updatedData, dbUsed: !!db });
       } catch (e) {
         console.error("DELETE /api/questions error:", e);
         return jsonResponse({ error: String(e) }, 500);
@@ -274,14 +306,14 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
         const updatedData = db ? await loadGameDataFromD1(db) : defaultData;
         await syncGameDataToKV(db, kv, updatedData);
 
-        return jsonResponse({ ok: true, data: updatedData });
+        return jsonResponse({ ok: true, data: updatedData, dbUsed: !!db });
       } catch (e) {
         console.error("PUT /api/questions error:", e);
         return jsonResponse({ error: String(e) }, 500);
       }
     }
 
-    // ─── PUT /api/game-data (Settings & Admin Config Update ONLY - Never wipes questions) ───
+    // ─── PUT /api/game-data ───
     if (path === "/api/game-data" && request.method === "PUT") {
       try {
         const body = (await request.json()) as { data: GameData; password: string };
