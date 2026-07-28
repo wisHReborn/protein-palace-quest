@@ -259,7 +259,9 @@ export function OverworldMapPage() {
       if (nx !== playerPosRef.current.x || ny !== playerPosRef.current.y) {
         playerPosRef.current = { x: nx, y: ny };
         setPlayerPos({ x: nx, y: ny });
-        sendMoveRef.current(nx, ny, "down", moving, "overworld");
+        const rx = nx / (mapBounds.w || 1200);
+        const ry = ny / (mapBounds.h || 800);
+        sendMoveRef.current(rx, ry, "down", moving, "overworld");
         checkBuildingCollision(nx, ny);
         checkNpcProximity(nx, ny);
       }
@@ -668,6 +670,8 @@ export function OverworldMapPage() {
 
         {/* Online Remote Players (Multiplayer) */}
         {remotePlayers.map((rp) => {
+          const px = (rp.rx ?? 0.4) * mapBounds.w;
+          const py = (rp.ry ?? 0.45) * mapBounds.h;
           const hasChat = rp.chatMsg && rp.chatTime && Date.now() - rp.chatTime < 6000;
 
           return (
@@ -675,7 +679,7 @@ export function OverworldMapPage() {
               key={rp.id}
               className="absolute pointer-events-none z-20 gpu-accelerated transition-all duration-75 ease-linear"
               style={{
-                transform: `translate3d(${rp.x}px, ${rp.y}px, 0) translate(-50%, -88%)`,
+                transform: `translate3d(${px}px, ${py}px, 0) translate(-50%, -88%)`,
               }}
             >
               {/* Remote Player Speech Bubble */}
