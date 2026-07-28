@@ -502,7 +502,7 @@ export function OverworldMapPage() {
           <div
             key={clickMarker.id}
             className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none z-15 flex items-center justify-center"
-            style={{ left: `${clickMarker.x}px`, top: `${clickMarker.y}px` }}
+            style={{ left: `${(clickMarker.x / 960) * mapBounds.w}px`, top: `${(clickMarker.y / 600) * mapBounds.h}px` }}
           >
             <div className="h-8 w-8 rounded-full border-2 border-pink-400 bg-pink-300/40 animate-ping" />
             <div className="absolute text-xs animate-bounce">📍</div>
@@ -709,7 +709,7 @@ export function OverworldMapPage() {
         <div
           className="absolute pointer-events-none z-20 gpu-accelerated"
           style={{
-            transform: `translate3d(${playerPos.x}px, ${playerPos.y}px, 0) translate(-50%, -88%)`,
+            transform: `translate3d(${(playerPos.x / 960) * mapBounds.w}px, ${(playerPos.y / 600) * mapBounds.h}px, 0) translate(-50%, -88%)`,
           }}
         >
           <div className="absolute bottom-0 left-1/2 h-3.5 w-11 -translate-x-1/2 rounded-full bg-black/60 blur-xs" />
