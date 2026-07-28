@@ -1,0 +1,16 @@
+{
+  "name": "protein-world",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "protein-world-db",
+      "database_id": "17a0eeec-55d7-4a69-ac8c-1373c49f087e"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "GAME_KV",
+      "id": "a2f050e86b5444d2be2ffb82abfa00c1"
+    }
+  ]
+}

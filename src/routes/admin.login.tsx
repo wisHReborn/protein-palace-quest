@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useGameData, setAdminLoggedIn } from "@/lib/game-store";
+import { useGameData, setAdminLoggedIn, cacheAdminPassword } from "@/lib/game-store";
 
 export const Route = createFileRoute("/admin/login")({
   head: () => ({
@@ -24,6 +24,7 @@ function AdminLogin() {
     e.preventDefault();
     if (pw === data.settings.adminPassword) {
       setAdminLoggedIn(true);
+      cacheAdminPassword(pw);
       nav({ to: "/admin" });
     } else setErr("รหัสผ่านไม่ถูกต้อง");
   }

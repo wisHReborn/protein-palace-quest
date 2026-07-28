@@ -1,6 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useGameData, usePlays, isAdminLoggedIn, setAdminLoggedIn, resetAll, exportGameDataJSON } from "@/lib/game-store";
+import {
+  useGameData,
+  usePlays,
+  isAdminLoggedIn,
+  setAdminLoggedIn,
+  resetAll,
+  exportGameDataJSON,
+  addQuestionD1,
+  deleteQuestionD1,
+  updateQuestionD1,
+} from "@/lib/game-store";
 import type { GameData, ZoneKey, KahootQ } from "@/lib/game-data";
 import { ZONES } from "@/lib/game-data";
 
@@ -234,18 +244,26 @@ function KahootZoneEditor({
   // Modal State for Confirm Delete
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
 
-  const updateQ = (index: number, patch: Partial<KahootQ>) => {
+  const updateQ = async (index: number, patch: Partial<KahootQ>) => {
     const list = [...questions];
-    list[index] = { ...list[index], ...patch };
+    const updatedItem = { ...list[index], ...patch };
+    list[index] = updatedItem;
     save({ ...data, [zoneKey]: list });
+    if (updatedItem.id) {
+      await updateQuestionD1(updatedItem.id, zoneKey, updatedItem);
+    }
   };
 
-  const updateOption = (qIdx: number, optIdx: number, val: string) => {
+  const updateOption = async (qIdx: number, optIdx: number, val: string) => {
     const list = [...questions];
     const opts = [...list[qIdx].options] as [string, string, string, string];
     opts[optIdx] = val;
-    list[qIdx] = { ...list[qIdx], options: opts };
+    const updatedItem = { ...list[qIdx], options: opts };
+    list[qIdx] = updatedItem;
     save({ ...data, [zoneKey]: list });
+    if (updatedItem.id) {
+      await updateQuestionD1(updatedItem.id, zoneKey, updatedItem);
+    }
   };
 
   const handleOpenAddModal = () => {
@@ -261,7 +279,7 @@ function KahootZoneEditor({
     setShowAddModal(true);
   };
 
-  const handleSaveNewQuestion = (e: React.FormEvent) => {
+  const handleSaveNewQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQPrompt.trim()) return;
 
@@ -283,13 +301,22 @@ function KahootZoneEditor({
 
     save({ ...data, [zoneKey]: [...questions, newQ] });
     setShowAddModal(false);
+
+    // Persist directly to D1 Database
+    await addQuestionD1(zoneKey, newQ);
   };
 
-  const confirmDeleteQuestion = () => {
+  const confirmDeleteQuestion = async () => {
     if (deletingIndex === null) return;
+    const targetQ = questions[deletingIndex];
     const list = questions.filter((_, idx) => idx !== deletingIndex);
     save({ ...data, [zoneKey]: list });
     setDeletingIndex(null);
+
+    // Delete directly from D1 Database
+    if (targetQ?.id) {
+      await deleteQuestionD1(targetQ.id);
+    }
   };
 
   return (
