@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as GameStructuralRouteImport } from './routes/game.structural'
 import { Route as GameImmuneRouteImport } from './routes/game.immune'
 import { Route as GameFoldingRouteImport } from './routes/game.folding'
@@ -25,6 +26,11 @@ const MapRoute = MapRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GameStructuralRoute = GameStructuralRouteImport.update({
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/game/folding': typeof GameFoldingRoute
   '/game/immune': typeof GameImmuneRoute
   '/game/structural': typeof GameStructuralRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/game/folding': typeof GameFoldingRoute
   '/game/immune': typeof GameImmuneRoute
   '/game/structural': typeof GameStructuralRoute
+  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/game/folding': typeof GameFoldingRoute
   '/game/immune': typeof GameImmuneRoute
   '/game/structural': typeof GameStructuralRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/game/folding'
     | '/game/immune'
     | '/game/structural'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/game/folding'
     | '/game/immune'
     | '/game/structural'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/game/folding'
     | '/game/immune'
     | '/game/structural'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   GameFoldingRoute: typeof GameFoldingRoute
   GameImmuneRoute: typeof GameImmuneRoute
   GameStructuralRoute: typeof GameStructuralRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/game/structural': {
@@ -183,7 +203,18 @@ const rootRouteChildren: RootRouteChildren = {
   GameFoldingRoute: GameFoldingRoute,
   GameImmuneRoute: GameImmuneRoute,
   GameStructuralRoute: GameStructuralRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
