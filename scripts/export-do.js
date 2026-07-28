@@ -27,51 +27,51 @@ export class GameRoomDO extends DurableObject {
       if (typeof message !== "string") return;
       const data = JSON.parse(message);
       let state = ws.deserializeAttachment();
+      const playerId = data.id || state?.id;
 
-      if (!state || data.type === "join") {
-        const joinId = data.id || state?.id || \`p_\${Date.now()}_\${Math.random().toString(36).slice(2, 6)}\`;
+      if (!playerId) return;
 
-        const sockets = this.ctx.getWebSockets();
-        for (const s of sockets) {
-          if (s !== ws) {
-            try {
-              const att = s.deserializeAttachment();
-              if (att && att.id === joinId) {
-                s.close(1000, "Reconnected elsewhere");
-              }
-            } catch {}
-          }
+      const sockets = this.ctx.getWebSockets();
+      for (const s of sockets) {
+        if (s !== ws) {
+          try {
+            const att = s.deserializeAttachment();
+            if (att && att.id === playerId) {
+              s.close(1000, "Reconnected elsewhere");
+            }
+          } catch {}
         }
-
-        state = {
-          id: joinId,
-          name: data.name || state?.name || "นักชีววิทยา",
-          avatar: data.avatar || state?.avatar || "/avatars/biologist_male.jpg",
-          rx: data.rx ?? state?.rx ?? 0.5,
-          ry: data.ry ?? state?.ry ?? 0.58,
-          direction: data.direction || state?.direction || "down",
-          isMoving: !!data.isMoving,
-          zone: data.zone || state?.zone || "overworld",
-        };
-        ws.serializeAttachment(state);
-        this.broadcastState();
-        return;
       }
 
-      if (data.type === "move") {
-        state.rx = data.rx ?? state.rx;
-        state.ry = data.ry ?? state.ry;
-        state.direction = data.direction || state.direction;
+      if (!state) {
+        state = {
+          id: playerId,
+          name: data.name || "นักชีววิทยา",
+          avatar: data.avatar || "/avatars/biologist_male.jpg",
+          rx: data.rx ?? 0.5,
+          ry: data.ry ?? 0.58,
+          direction: data.direction || "down",
+          isMoving: !!data.isMoving,
+          zone: data.zone || "overworld",
+        };
+      } else {
+        if (data.id) state.id = data.id;
+        if (data.name) state.name = data.name;
+        if (data.avatar) state.avatar = data.avatar;
+        if (data.rx !== undefined) state.rx = data.rx;
+        if (data.ry !== undefined) state.ry = data.ry;
+        if (data.direction) state.direction = data.direction;
         state.isMoving = !!data.isMoving;
         if (data.zone) state.zone = data.zone;
-        ws.serializeAttachment(state);
-        this.broadcastState();
-      } else if (data.type === "chat") {
+      }
+
+      if (data.type === "chat" && data.text) {
         state.chatMsg = String(data.text).slice(0, 100);
         state.chatTime = Date.now();
-        ws.serializeAttachment(state);
-        this.broadcastState();
       }
+
+      ws.serializeAttachment(state);
+      this.broadcastState();
     } catch (err) {
       console.error("GameRoomDO msg error:", err);
     }

@@ -276,6 +276,9 @@ export function OverworldMapPage() {
   // Keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore movement keys when typing in input/textarea fields
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d", "W", "A", "S", "D"].includes(e.key)) {
         keysPressed.current[e.key] = true;
         setActiveZone(null);
@@ -297,6 +300,13 @@ export function OverworldMapPage() {
 
   function handleMapPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!containerRef.current) return;
+
+    // Ignore clicks/taps on UI elements, inputs, buttons, and touch overlays
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, textarea, a, select, [role='button']")) {
+      return;
+    }
+
     const rect = containerRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
@@ -742,7 +752,12 @@ export function OverworldMapPage() {
         </div>
 
         {/* 💬 Live Multiplayer Chat Bar */}
-        <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-40 flex items-center gap-2 max-w-[260px] sm:max-w-sm md:max-w-md w-full">
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-40 flex items-center gap-2 max-w-[260px] sm:max-w-sm md:max-w-md w-full"
+        >
           <input
             type="text"
             value={chatInput}

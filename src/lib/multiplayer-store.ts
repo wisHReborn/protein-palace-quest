@@ -90,7 +90,7 @@ export function useMultiplayer(myPlayerInfo: {
               const otherPlayers: RemotePlayer[] = [];
 
               for (const p of data.players) {
-                // Ignore self by ID
+                // EXCLUSIVELY filter self by unique session ID
                 if (p.id === myId) {
                   if (p.chatMsg && p.chatTime) {
                     setMyChat({ msg: p.chatMsg, time: p.chatTime });
@@ -141,6 +141,9 @@ export function useMultiplayer(myPlayerInfo: {
           wsRef.current.send(
             JSON.stringify({
               type: "move",
+              id: myId,
+              name: infoRef.current.name,
+              avatar: infoRef.current.avatar,
               rx: Number(infoRef.current.rx.toFixed(4)),
               ry: Number(infoRef.current.ry.toFixed(4)),
               direction: infoRef.current.direction,
@@ -174,10 +177,12 @@ export function useMultiplayer(myPlayerInfo: {
     lastMoveSentRef.current = now;
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const myId = getMyPlayerId();
       try {
         wsRef.current.send(
           JSON.stringify({
             type: "move",
+            id: myId,
             rx: Number(rx.toFixed(4)),
             ry: Number(ry.toFixed(4)),
             direction,
@@ -194,10 +199,12 @@ export function useMultiplayer(myPlayerInfo: {
     if (!trimmed) return;
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const myId = getMyPlayerId();
       try {
         wsRef.current.send(
           JSON.stringify({
             type: "chat",
+            id: myId,
             text: trimmed,
           })
         );
