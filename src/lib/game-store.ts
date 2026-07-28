@@ -5,6 +5,8 @@ const DATA_KEY = "pw:data:v1";
 const PROGRESS_KEY = "pw:progress:v1";
 const PLAYS_KEY = "pw:plays:v1";
 const ADMIN_KEY = "pw:admin:v1";
+const AVATAR_KEY = "pw:avatar:v1";
+const PLAYER_NAME_KEY = "pw:player_name:v1";
 
 export type PlayLog = {
   id: string;
@@ -76,6 +78,40 @@ export function usePlays(): [PlayLog[], (l: PlayLog[]) => void] {
   return [list, save];
 }
 
+export function usePlayerAvatar(): [string, (url: string) => void] {
+  const [avatar, setAvatar] = useState<string>("/avatars/biologist_male.jpg");
+  useEffect(() => {
+    setAvatar(read<string>(AVATAR_KEY, "/avatars/biologist_male.jpg"));
+    const h = () => setAvatar(read<string>(AVATAR_KEY, "/avatars/biologist_male.jpg"));
+    window.addEventListener("pw:sync", h);
+    return () => window.removeEventListener("pw:sync", h);
+  }, []);
+  const save = useCallback((url: string) => {
+    write(AVATAR_KEY, url);
+    setAvatar(url);
+  }, []);
+  return [avatar, save];
+}
+
+export function usePlayerName(): [string, (name: string) => void] {
+  const [name, setName] = useState<string>("นักชีววิทยาฝึกหัด");
+  useEffect(() => {
+    setName(read<string>(PLAYER_NAME_KEY, "นักชีววิทยาฝึกหัด"));
+    const h = () => setName(read<string>(PLAYER_NAME_KEY, "นักชีววิทยาฝึกหัด"));
+    window.addEventListener("pw:sync", h);
+    return () => window.removeEventListener("pw:sync", h);
+  }, []);
+  const save = useCallback((n: string) => {
+    write(PLAYER_NAME_KEY, n);
+    setName(n);
+  }, []);
+  return [name, save];
+}
+
+export function getCurrentPlayerName(): string {
+  return read<string>(PLAYER_NAME_KEY, "นักชีววิทยาฝึกหัด");
+}
+
 export function logPlay(entry: Omit<PlayLog, "id" | "at">) {
   const list = read<PlayLog[]>(PLAYS_KEY, []);
   const item: PlayLog = { ...entry, id: crypto.randomUUID(), at: Date.now() };
@@ -104,5 +140,17 @@ export function resetAll() {
   localStorage.removeItem(DATA_KEY);
   localStorage.removeItem(PROGRESS_KEY);
   localStorage.removeItem(PLAYS_KEY);
+  localStorage.removeItem(AVATAR_KEY);
+  localStorage.removeItem(PLAYER_NAME_KEY);
   window.dispatchEvent(new CustomEvent("pw:sync"));
+}
+
+export function exportGameDataJSON(data: GameData) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `protein-world-data-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
