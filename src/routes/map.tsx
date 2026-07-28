@@ -1231,6 +1231,95 @@ export function OverworldMapPage() {
           </div>
         </div>
       )}
+
+      {/* 🧰 Protein Treasure Chest Quiz Modal */}
+      {activeChest && activeChest.question && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl border-3 border-amber-400 bg-slate-950 p-6 sm:p-8 shadow-2xl shadow-amber-500/20 text-white space-y-5">
+            <button
+              onClick={() => setActiveChest(null)}
+              className="absolute right-4 top-4 h-8 w-8 rounded-full bg-slate-800 text-slate-300 hover:text-white font-bold flex items-center justify-center cursor-pointer transition"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-3xl border border-amber-400/50">
+                🧰
+              </div>
+              <div>
+                <div className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                  {activeChest.chest?.name || "กล่องสมบัติชีววิทยาโปรตีน"}
+                </div>
+                <h3 className="text-lg sm:text-xl font-black text-white">โจทย์ปริศนาโปรตีนรับของรางวัล</h3>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-slate-900/90 p-4 border border-amber-500/30 text-sm sm:text-base font-bold text-amber-100 leading-relaxed shadow-inner">
+              {activeChest.question.prompt}
+            </div>
+
+            {/* 4 Kahoot-Style Choices */}
+            <div className="grid gap-2.5">
+              {activeChest.question.options?.map((opt, idx) => {
+                const colors = [
+                  "bg-red-950/80 hover:bg-red-900 border-red-500/50 text-red-100",
+                  "bg-cyan-950/80 hover:bg-cyan-900 border-cyan-500/50 text-cyan-100",
+                  "bg-amber-950/80 hover:bg-amber-900 border-amber-500/50 text-amber-100",
+                  "bg-emerald-950/80 hover:bg-emerald-900 border-emerald-500/50 text-emerald-100",
+                ];
+                const badges = ["🔴 A", "🔷 B", "🟡 C", "🟢 D"];
+
+                const isSelected = selectedChestOption === idx;
+                const isCorrect = idx === activeChest.question.correctIndex;
+
+                let styleClass = colors[idx % 4];
+                if (selectedChestOption !== null) {
+                  if (isCorrect) styleClass = "bg-emerald-900 border-2 border-emerald-400 text-white font-black scale-102";
+                  else if (isSelected) styleClass = "bg-rose-950 border-2 border-rose-500 text-rose-200 opacity-80";
+                  else styleClass = "bg-slate-900/50 border-slate-800 text-slate-500 opacity-40";
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    disabled={selectedChestOption !== null}
+                    onClick={() => handleAnswerChest(idx)}
+                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-xs sm:text-sm font-bold text-left transition-all cursor-pointer ${styleClass}`}
+                  >
+                    <span className="font-mono font-black text-sm shrink-0">{badges[idx % 4]}</span>
+                    <span className="flex-1">{opt}</span>
+                    {selectedChestOption !== null && isCorrect && <span>✅</span>}
+                    {selectedChestOption !== null && isSelected && !isCorrect && <span>❌</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Answer Feedback & Explanation */}
+            {chestAnswered && (
+              <div className={`rounded-2xl p-4 border text-xs space-y-2 animate-in fade-in slide-in-from-bottom-2 ${
+                chestAnswered.isCorrect ? "bg-emerald-950/90 border-emerald-500/50 text-emerald-200" : "bg-rose-950/90 border-rose-500/50 text-rose-200"
+              }`}>
+                <div className="font-black text-sm flex items-center justify-between">
+                  <span>{chestAnswered.isCorrect ? "🎉 ตอบถูกต้อง! เปิดกล่องสำเร็จ" : "❌ ตอบยังไม่ถูกต้อง"}</span>
+                  {chestAnswered.isCorrect && <span className="text-amber-300 font-mono text-base">+50 คะแนน 💎</span>}
+                </div>
+                <p className="leading-relaxed opacity-90">{activeChest.question.explanation}</p>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={() => setActiveChest(null)}
+                    className="rounded-xl bg-amber-500 text-slate-950 px-5 py-2 text-xs font-black hover:bg-amber-400 transition cursor-pointer shadow-lg"
+                  >
+                    รับทราบ (ปิดกล่อง) ⏳
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
