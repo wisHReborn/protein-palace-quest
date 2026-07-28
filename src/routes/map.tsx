@@ -666,6 +666,50 @@ export function OverworldMapPage() {
           );
         })}
 
+        {/* Online Remote Players (Multiplayer) */}
+        {remotePlayers.map((rp) => {
+          const hasChat = rp.chatMsg && rp.chatTime && Date.now() - rp.chatTime < 6000;
+
+          return (
+            <div
+              key={rp.id}
+              className="absolute pointer-events-none z-20 gpu-accelerated transition-all duration-75 ease-linear"
+              style={{
+                transform: `translate3d(${rp.x}px, ${rp.y}px, 0) translate(-50%, -88%)`,
+              }}
+            >
+              {/* Remote Player Speech Bubble */}
+              {hasChat && (
+                <div className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-white/95 px-3 py-1.5 text-xs font-black text-slate-900 shadow-2xl border-2 border-pink-400 animate-bounce z-30">
+                  💬 {rp.chatMsg}
+                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 bg-white border-b-2 border-r-2 border-pink-400" />
+                </div>
+              )}
+
+              {/* Shadow */}
+              <div className="absolute bottom-0 left-1/2 h-3.5 w-11 -translate-x-1/2 rounded-full bg-black/60 blur-xs" />
+
+              {/* Remote Player Character Body */}
+              <div className="relative flex flex-col items-center">
+                {/* Name Tag */}
+                <div className="mb-0.5 flex items-center gap-1 rounded-full bg-slate-900/90 px-2 py-0.5 text-[9px] md:text-[10px] font-black text-pink-300 shadow-xl border border-pink-500/40 whitespace-nowrap">
+                  <span className="text-[8px] bg-pink-500/30 text-pink-200 px-1 rounded font-mono">ONLINE</span>
+                  <span>{rp.name}</span>
+                </div>
+
+                {/* Character Avatar Circle */}
+                <div
+                  className={`relative h-11 w-11 md:h-13 md:w-13 overflow-hidden rounded-full border-2 border-pink-400 bg-white shadow-xl ${
+                    rp.isMoving ? "animate-bounce" : ""
+                  }`}
+                >
+                  <img src={rp.avatar || "/avatars/biologist_male.jpg"} alt={rp.name} className="h-full w-full object-cover" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
         {/* Player Avatar */}
         <div
           className="absolute pointer-events-none z-20 gpu-accelerated"
@@ -684,6 +728,34 @@ export function OverworldMapPage() {
               <img src={playerAvatar} alt="Player Character" className="h-full w-full object-cover" />
             </div>
           </div>
+        </div>
+
+        {/* 💬 Live Multiplayer Chat Bar */}
+        <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-40 flex items-center gap-2 max-w-[260px] sm:max-w-sm md:max-w-md w-full">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && chatInput.trim()) {
+                sendChat(chatInput);
+                setChatInput("");
+              }
+            }}
+            placeholder="💬 พิมพ์คุยกับเพื่อนในแมพ (กด Enter ส่ง)..."
+            className="w-full rounded-2xl border-2 border-pink-400/60 bg-slate-950/90 px-3.5 py-2 text-xs font-bold text-white placeholder-slate-400 outline-none backdrop-blur-md focus:border-pink-400 focus:ring-2 focus:ring-pink-500/40 shadow-2xl"
+          />
+          <button
+            onClick={() => {
+              if (chatInput.trim()) {
+                sendChat(chatInput);
+                setChatInput("");
+              }
+            }}
+            className="rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-3.5 py-2 text-xs font-black text-white shadow-xl hover:scale-105 transition cursor-pointer border border-white/20 whitespace-nowrap"
+          >
+            ส่ง 💬
+          </button>
         </div>
       </div>
 
