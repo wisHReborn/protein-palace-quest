@@ -3,10 +3,12 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { defaultData, type GameData, type KahootQ, type ZoneKey } from "./lib/game-data";
+export { GameRoomDO } from "./game-room-do";
 
 type CloudflareEnv = {
   DB?: D1Database;
   GAME_KV?: KVNamespace;
+  GAME_ROOM?: DurableObjectNamespace;
   ASSETS?: unknown;
 };
 
@@ -52,7 +54,7 @@ function isH3SwallowedErrorBody(body: string): boolean {
 // ─────────────── Cloudflare Environment Resolvers ───────────────
 
 function getCloudflareEnv(env: any, request: any): any {
-  if (env && (env.DB || env.GAME_KV)) return env;
+  if (env && (env.DB || env.GAME_KV || env.GAME_ROOM)) return env;
   if (request?.context?.cloudflare?.env) return request.context.cloudflare.env;
   if (request?.env) return request.env;
   if ((globalThis as any)?.__env__) return (globalThis as any).__env__;
@@ -169,6 +171,16 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
     const kv = getKVNamespace(env, request);
     const cf = getCloudflareEnv(env, request);
 
+    // ─── 📡 WebSocket Upgrade Route (/api/ws) ───
+    if (path === "/api/ws") {
+      const gameRoomNs = cf?.GAME_ROOM as DurableObjectNamespace | undefined;
+      if (gameRoomNs) {
+        const stub = gameRoomNs.getByName("main_world");
+        return stub.fetch(request);
+      }
+      return new Response("Durable Object GAME_ROOM binding not available", { status: 503 });
+    }
+
     // ─── GET /api/debug-env ───
     if (path === "/api/debug-env") {
       return jsonResponse({
@@ -177,6 +189,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
         cfKeys: cf ? Object.keys(cf) : [],
         hasDB: !!db,
         hasKV: !!kv,
+        hasGameRoom: !!cf?.GAME_ROOM,
       });
     }
 
