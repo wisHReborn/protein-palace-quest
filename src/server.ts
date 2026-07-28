@@ -49,26 +49,25 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
-// ─────────────── D1 / KV Binding Resolvers ───────────────
+// ─────────────── Cloudflare Environment Resolvers ───────────────
+
+function getCloudflareEnv(env: any, request: any): any {
+  if (env && (env.DB || env.GAME_KV)) return env;
+  if (request?.context?.cloudflare?.env) return request.context.cloudflare.env;
+  if (request?.env) return request.env;
+  if ((globalThis as any)?.__env__) return (globalThis as any).__env__;
+  if ((globalThis as any)?.process?.env) return (globalThis as any).process.env;
+  return env || {};
+}
 
 function getD1Database(env: any, request: Request): D1Database | undefined {
-  return (
-    env?.DB ||
-    env?.protein_world_db ||
-    (env as any)?.env?.DB ||
-    (request as any)?.env?.DB ||
-    (globalThis as any)?.DB ||
-    (globalThis as any)?.protein_world_db
-  );
+  const cf = getCloudflareEnv(env, request);
+  return cf?.DB || cf?.protein_world_db || (globalThis as any)?.DB;
 }
 
 function getKVNamespace(env: any, request: Request): KVNamespace | undefined {
-  return (
-    env?.GAME_KV ||
-    (env as any)?.env?.GAME_KV ||
-    (request as any)?.env?.GAME_KV ||
-    (globalThis as any)?.GAME_KV
-  );
+  const cf = getCloudflareEnv(env, request);
+  return cf?.GAME_KV || (globalThis as any)?.GAME_KV;
 }
 
 // ─────────────── D1 SQLite Database Helpers ───────────────
@@ -133,7 +132,6 @@ async function loadGameDataFromD1(db: D1Database): Promise<GameData> {
       }
     }
   } else {
-    // If table is empty, return defaultData
     return defaultData;
   }
 
@@ -169,14 +167,16 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
 
     const db = getD1Database(env, request);
     const kv = getKVNamespace(env, request);
+    const cf = getCloudflareEnv(env, request);
 
     // ─── GET /api/debug-env ───
     if (path === "/api/debug-env") {
       return jsonResponse({
+        envType: typeof env,
         envKeys: env ? Object.keys(env) : [],
+        cfKeys: cf ? Object.keys(cf) : [],
         hasDB: !!db,
         hasKV: !!kv,
-        dbMethods: db ? Object.keys(db) : [],
       });
     }
 
@@ -200,7 +200,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
       return jsonResponse(defaultData);
     }
 
-    // ─── ➕ POST /api/questions (Add single question directly to D1) ───
+    // ─── ➕ POST /api/questions ───
     if (path === "/api/questions" && request.method === "POST") {
       try {
         const body = (await request.json()) as { zone: ZoneKey; question: KahootQ };
@@ -246,7 +246,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
       }
     }
 
-    // ─── 🗑️ DELETE /api/questions (Delete single question directly from D1) ───
+    // ─── 🗑️ DELETE /api/questions ───
     if (path === "/api/questions" && request.method === "DELETE") {
       try {
         const body = (await request.json()) as { id: string };
@@ -270,7 +270,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
       }
     }
 
-    // ─── ✏️ PUT /api/questions (Update single question in D1) ───
+    // ─── ✏️ PUT /api/questions ───
     if (path === "/api/questions" && request.method === "PUT") {
       try {
         const body = (await request.json()) as { id: string; zone: ZoneKey; question: KahootQ };
