@@ -58,8 +58,8 @@ export function OverworldMapPage() {
   const { remotePlayers, sendMove, sendChat } = useMultiplayer({
     name: playerName,
     avatar: playerAvatar,
-    rx: playerPos.x / (mapBounds.w || 1200),
-    ry: playerPos.y / (mapBounds.h || 800),
+    rx: playerPos.x / 960,
+    ry: playerPos.y / 600,
     direction: "down",
     zone: "overworld",
   });
@@ -163,43 +163,34 @@ export function OverworldMapPage() {
   // Check Building Box Collisions
   const checkBuildingCollision = useCallback(
     (px: number, py: number) => {
-      const scaleX = mapBounds.w / 960;
-      const scaleY = mapBounds.h / 600;
-
       for (const z of ZONES) {
-        const zx = z.x * scaleX;
-        const zy = z.y * scaleY;
-        const dist = Math.hypot(zx - px, zy - py);
+        const dist = Math.hypot(z.x - px, z.y - py);
 
-        if (dist <= 70) {
+        if (dist <= 75) {
           if (progress.unlocked[z.key] && lastClosedZoneRef.current !== z.key) {
             setActiveZone(z);
           }
-        } else if (dist > 105) {
+        } else if (dist > 110) {
           if (lastClosedZoneRef.current === z.key) {
             lastClosedZoneRef.current = null;
           }
         }
       }
     },
-    [mapBounds, progress.unlocked]
+    [progress.unlocked]
   );
 
   // Check NPC Proximity
   const checkNpcProximity = useCallback(
     (px: number, py: number) => {
-      const scaleX = mapBounds.w / 960;
-      const scaleY = mapBounds.h / 600;
       for (const npc of npcs) {
-        const nx = npc.x * scaleX;
-        const ny = npc.y * scaleY;
-        if (Math.hypot(nx - px, ny - py) < 65) {
+        if (Math.hypot(npc.x - px, npc.y - py) < 65) {
           setActiveNpc(npc);
           return;
         }
       }
     },
-    [mapBounds, npcs]
+    [npcs]
   );
 
   // High-performance rAF movement loop
@@ -230,8 +221,8 @@ export function OverworldMapPage() {
         setClickMarker(null);
 
         const len = Math.hypot(dx, dy);
-        nx = Math.max(35, Math.min(mapBounds.w - 35, nx + (dx / len) * speed));
-        ny = Math.max(65, Math.min(mapBounds.h - 35, ny + (dy / len) * speed));
+        nx = Math.max(35, Math.min(925, nx + (dx / len) * speed));
+        ny = Math.max(65, Math.min(565, ny + (dy / len) * speed));
       } else if (targetPosRef.current) {
         const tdx = targetPosRef.current.x - nx;
         const tdy = targetPosRef.current.y - ny;
@@ -259,8 +250,8 @@ export function OverworldMapPage() {
       if (nx !== playerPosRef.current.x || ny !== playerPosRef.current.y) {
         playerPosRef.current = { x: nx, y: ny };
         setPlayerPos({ x: nx, y: ny });
-        const rx = nx / (mapBounds.w || 1200);
-        const ry = ny / (mapBounds.h || 800);
+        const rx = nx / 960;
+        const ry = ny / 600;
         sendMoveRef.current(rx, ry, "down", moving, "overworld");
         checkBuildingCollision(nx, ny);
         checkNpcProximity(nx, ny);
@@ -274,7 +265,7 @@ export function OverworldMapPage() {
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
     };
-  }, [mapBounds, checkBuildingCollision, checkNpcProximity]);
+  }, [checkBuildingCollision, checkNpcProximity]);
 
   // Keyboard events
   useEffect(() => {
@@ -304,9 +295,12 @@ export function OverworldMapPage() {
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
+    const virtualX = (clickX / mapBounds.w) * 960;
+    const virtualY = (clickY / mapBounds.h) * 600;
+
     targetBuildingKeyRef.current = null;
-    targetPosRef.current = { x: clickX, y: clickY };
-    setClickMarker({ x: clickX, y: clickY, id: Date.now() });
+    targetPosRef.current = { x: virtualX, y: virtualY };
+    setClickMarker({ x: virtualX, y: virtualY, id: Date.now() });
 
     setActiveZone(null);
     setActiveNpc(null);
@@ -314,11 +308,8 @@ export function OverworldMapPage() {
 
   function handleBuildingClick(z: (typeof ZONES)[number], e: React.MouseEvent) {
     e.stopPropagation();
-    const scaleX = mapBounds.w / 960;
-    const scaleY = mapBounds.h / 600;
-
-    const targetX = z.x * scaleX;
-    const targetY = z.y * scaleY + 45;
+    const targetX = z.x;
+    const targetY = z.y + 45;
 
     targetBuildingKeyRef.current = z.key;
     targetPosRef.current = { x: targetX, y: targetY };
