@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameStructuralRouteImport } from './routes/game.structural'
+import { Route as GameFoldingRouteImport } from './routes/game.folding'
 
 const MapRoute = MapRouteImport.update({
   id: '/map',
@@ -28,34 +29,43 @@ const GameStructuralRoute = GameStructuralRouteImport.update({
   path: '/game/structural',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameFoldingRoute = GameFoldingRouteImport.update({
+  id: '/game/folding',
+  path: '/game/folding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/map': typeof MapRoute
+  '/game/folding': typeof GameFoldingRoute
   '/game/structural': typeof GameStructuralRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/map': typeof MapRoute
+  '/game/folding': typeof GameFoldingRoute
   '/game/structural': typeof GameStructuralRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/map': typeof MapRoute
+  '/game/folding': typeof GameFoldingRoute
   '/game/structural': typeof GameStructuralRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/map' | '/game/structural'
+  fullPaths: '/' | '/map' | '/game/folding' | '/game/structural'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/map' | '/game/structural'
-  id: '__root__' | '/' | '/map' | '/game/structural'
+  to: '/' | '/map' | '/game/folding' | '/game/structural'
+  id: '__root__' | '/' | '/map' | '/game/folding' | '/game/structural'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MapRoute: typeof MapRoute
+  GameFoldingRoute: typeof GameFoldingRoute
   GameStructuralRoute: typeof GameStructuralRoute
 }
 
@@ -82,12 +92,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameStructuralRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/game/folding': {
+      id: '/game/folding'
+      path: '/game/folding'
+      fullPath: '/game/folding'
+      preLoaderRoute: typeof GameFoldingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MapRoute: MapRoute,
+  GameFoldingRoute: GameFoldingRoute,
   GameStructuralRoute: GameStructuralRoute,
 }
 export const routeTree = rootRouteImport
