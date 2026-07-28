@@ -6,27 +6,18 @@ export type RemotePlayer = PlayerState & {
   renderY: number;
 };
 
-let wsInstance: WebSocket | null = null;
-let currentMyId = "";
-let subscribers: Set<(players: RemotePlayer[]) => void> = new Set();
-let remotePlayersMap: Map<string, RemotePlayer> = new Map();
-
 export function getMyPlayerId(): string {
   if (typeof window === "undefined") return "p_ssr";
-  if (!currentMyId) {
-    try {
-      const cached = sessionStorage.getItem("pw_session_id");
-      if (cached) {
-        currentMyId = cached;
-      } else {
-        currentMyId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-        sessionStorage.setItem("pw_session_id", currentMyId);
-      }
-    } catch {
-      currentMyId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  try {
+    let id = sessionStorage.getItem("pw_session_id");
+    if (!id) {
+      id = `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      sessionStorage.setItem("pw_session_id", id);
     }
+    return id;
+  } catch {
+    return `p_temp_${Math.random().toString(36).slice(2, 7)}`;
   }
-  return currentMyId;
 }
 
 export function useMultiplayer(myPlayerInfo: {
@@ -37,8 +28,9 @@ export function useMultiplayer(myPlayerInfo: {
   direction: string;
   zone: string;
 }) {
-  const [players, setPlayers] = useState<RemotePlayer[]>(() => Array.from(remotePlayersMap.values()));
+  const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
   const [myChat, setMyChat] = useState<{ msg: string; time: number } | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const lastMoveSentRef = useRef<number>(0);
   const infoRef = useRef(myPlayerInfo);
 
@@ -47,10 +39,12 @@ export function useMultiplayer(myPlayerInfo: {
   }, [myPlayerInfo.rx, myPlayerInfo.ry, myPlayerInfo.name, myPlayerInfo.avatar]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const myId = getMyPlayerId();
+    let isSubscribed = true;
 
     function sendJoin(ws: WebSocket) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN) {
         try {
           ws.send(
             JSON.stringify({
@@ -69,14 +63,10 @@ export function useMultiplayer(myPlayerInfo: {
     }
 
     function connect() {
-      if (typeof window === "undefined") return;
-
-      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-        sendJoin(wsInstance);
-        return;
-      }
-
-      if (wsInstance && wsInstance.readyState === WebSocket.CONNECTING) {
+      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          sendJoin(wsRef.current);
+        }
         return;
       }
 
@@ -86,93 +76,69 @@ export function useMultiplayer(myPlayerInfo: {
 
       try {
         const ws = new WebSocket(wsUrl);
-        wsInstance = ws;
+        wsRef.current = ws;
 
         ws.onopen = () => {
           sendJoin(ws);
         };
 
         ws.onmessage = (event) => {
+          if (!isSubscribed) return;
           try {
             const data = JSON.parse(event.data);
             if (data.type === "players_update" && Array.isArray(data.players)) {
-              const updatedList: RemotePlayer[] = [];
+              const otherPlayers: RemotePlayer[] = [];
 
               for (const p of data.players) {
+                // Ignore self by ID
                 if (p.id === myId) {
-                  // Catch self chat message if broadcasted
                   if (p.chatMsg && p.chatTime) {
                     setMyChat({ msg: p.chatMsg, time: p.chatTime });
                   }
                   continue;
                 }
 
-                const existing = remotePlayersMap.get(p.id);
-                const renderX = existing ? existing.renderX : 0;
-                const renderY = existing ? existing.renderY : 0;
-
-                const remoteP: RemotePlayer = {
+                otherPlayers.push({
                   ...p,
-                  renderX,
-                  renderY,
-                };
-                remotePlayersMap.set(p.id, remoteP);
-                updatedList.push(remoteP);
+                  renderX: p.rx * 960,
+                  renderY: p.ry * 600,
+                });
               }
 
-              // Remove players no longer present
-              for (const [id] of remotePlayersMap) {
-                if (!data.players.some((p: any) => p.id === id)) {
-                  remotePlayersMap.delete(id);
-                }
-              }
-
-              subscribers.forEach((cb) => cb(Array.from(remotePlayersMap.values())));
+              setRemotePlayers(otherPlayers);
             }
           } catch {}
         };
 
         ws.onclose = () => {
-          wsInstance = null;
-          setTimeout(connect, 1000);
+          wsRef.current = null;
+          if (isSubscribed) {
+            setTimeout(connect, 1000);
+          }
         };
 
         ws.onerror = () => {
-          wsInstance = null;
+          wsRef.current = null;
         };
       } catch {
-        wsInstance = null;
+        wsRef.current = null;
       }
     }
 
-    const handleSub = (list: RemotePlayer[]) => {
-      setPlayers([...list]);
-    };
-    subscribers.add(handleSub);
-
-    // Initial sync immediately upon subscribe
-    handleSub(Array.from(remotePlayersMap.values()));
-
     connect();
 
-    // iPadOS / Mobile Safari Tab Wakeup & Network Handlers
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        connect();
-      }
+      if (document.visibilityState === "visible") connect();
     };
-    const handleOnline = () => {
-      connect();
-    };
+    const handleOnline = () => connect();
 
     window.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("online", handleOnline);
 
-    // Heartbeat ping & re-join sync every 2.5 seconds for iPadOS/iOS Safari
     const heartbeat = setInterval(() => {
-      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         try {
-          wsInstance.send(
+          wsRef.current.send(
             JSON.stringify({
               type: "move",
               rx: Number(infoRef.current.rx.toFixed(4)),
@@ -182,31 +148,34 @@ export function useMultiplayer(myPlayerInfo: {
               zone: infoRef.current.zone,
             })
           );
-        } catch {
-          wsInstance = null;
-          connect();
-        }
+        } catch {}
       } else {
         connect();
       }
-    }, 2500);
+    }, 2000);
 
     return () => {
-      subscribers.delete(handleSub);
+      isSubscribed = false;
       clearInterval(heartbeat);
       window.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {}
+        wsRef.current = null;
+      }
     };
   }, []);
 
   const sendMove = (rx: number, ry: number, direction: string, isMoving: boolean, zone: string) => {
     const now = Date.now();
-    if (now - lastMoveSentRef.current < 50) return;
+    if (now - lastMoveSentRef.current < 40) return;
     lastMoveSentRef.current = now;
 
-    if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {
-        wsInstance.send(
+        wsRef.current.send(
           JSON.stringify({
             type: "move",
             rx: Number(rx.toFixed(4)),
@@ -224,9 +193,9 @@ export function useMultiplayer(myPlayerInfo: {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {
-        wsInstance.send(
+        wsRef.current.send(
           JSON.stringify({
             type: "chat",
             text: trimmed,
@@ -237,5 +206,5 @@ export function useMultiplayer(myPlayerInfo: {
     setMyChat({ msg: trimmed, time: Date.now() });
   };
 
-  return { remotePlayers: players, sendMove, sendChat, myChat };
+  return { remotePlayers, sendMove, sendChat, myChat };
 }

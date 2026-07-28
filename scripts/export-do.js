@@ -29,8 +29,22 @@ export class GameRoomDO extends DurableObject {
       let state = ws.deserializeAttachment();
 
       if (!state || data.type === "join") {
+        const joinId = data.id || state?.id || \`p_\${Date.now()}_\${Math.random().toString(36).slice(2, 6)}\`;
+
+        const sockets = this.ctx.getWebSockets();
+        for (const s of sockets) {
+          if (s !== ws) {
+            try {
+              const att = s.deserializeAttachment();
+              if (att && att.id === joinId) {
+                s.close(1000, "Reconnected elsewhere");
+              }
+            } catch {}
+          }
+        }
+
         state = {
-          id: data.id || state?.id || \`p_\${Date.now()}_\${Math.random().toString(36).slice(2, 6)}\`,
+          id: joinId,
           name: data.name || state?.name || "นักชีววิทยา",
           avatar: data.avatar || state?.avatar || "/avatars/biologist_male.jpg",
           rx: data.rx ?? state?.rx ?? 0.5,
@@ -75,17 +89,22 @@ export class GameRoomDO extends DurableObject {
 
   broadcastState() {
     const sockets = this.ctx.getWebSockets();
-    const playerList = [];
+    const playerMap = new Map();
     for (const s of sockets) {
       try {
+        if (s.readyState !== 1) continue;
         const att = s.deserializeAttachment();
-        if (att) playerList.push(att);
+        if (att && att.id) {
+          playerMap.set(att.id, att);
+        }
       } catch {}
     }
-    const payload = JSON.stringify({ type: "players_update", players: playerList });
+    const payload = JSON.stringify({ type: "players_update", players: Array.from(playerMap.values()) });
     for (const s of sockets) {
       try {
-        s.send(payload);
+        if (s.readyState === 1) {
+          s.send(payload);
+        }
       } catch {}
     }
   }
