@@ -55,7 +55,7 @@ export function OverworldMapPage() {
   // Live Multiplayer Chat State
   const [chatInput, setChatInput] = useState("");
 
-  const { remotePlayers, sendMove, sendChat } = useMultiplayer({
+  const { remotePlayers, sendMove, sendChat, myChat } = useMultiplayer({
     name: playerName,
     avatar: playerAvatar,
     rx: playerPos.x / 960,
@@ -63,6 +63,12 @@ export function OverworldMapPage() {
     direction: "down",
     zone: "overworld",
   });
+
+  const handleSendLocalChat = (text: string) => {
+    if (!text.trim()) return;
+    sendChat(text.trim());
+    setChatInput("");
+  };
 
   const sendMoveRef = useRef(sendMove);
   useEffect(() => {
@@ -717,6 +723,14 @@ export function OverworldMapPage() {
           <div className="absolute bottom-0 left-1/2 h-3.5 w-11 -translate-x-1/2 rounded-full bg-black/60 blur-xs" />
 
           <div className={`relative flex flex-col items-center ${isWalking ? "animate-bounce" : ""}`}>
+            {/* Local Player Speech Bubble */}
+            {myChat && Date.now() - myChat.time < 6000 && (
+              <div className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-white/95 px-3 py-1.5 text-xs font-black text-slate-900 shadow-2xl border-2 border-pink-400 animate-bounce z-40">
+                💬 {myChat.msg}
+                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 bg-white border-b-2 border-r-2 border-pink-400" />
+              </div>
+            )}
+
             <div className="mb-0.5 rounded-full bg-berry px-2 py-0.5 text-[10px] md:text-xs font-black text-white shadow-xl border-2 border-white whitespace-nowrap">
               🧬 {playerName}
             </div>
@@ -734,21 +748,15 @@ export function OverworldMapPage() {
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && chatInput.trim()) {
-                sendChat(chatInput);
-                setChatInput("");
+              if (e.key === "Enter") {
+                handleSendLocalChat(chatInput);
               }
             }}
             placeholder="💬 พิมพ์คุยกับเพื่อนในแมพ (กด Enter ส่ง)..."
             className="w-full rounded-2xl border-2 border-pink-400/60 bg-slate-950/90 px-3.5 py-2 text-xs font-bold text-white placeholder-slate-400 outline-none backdrop-blur-md focus:border-pink-400 focus:ring-2 focus:ring-pink-500/40 shadow-2xl"
           />
           <button
-            onClick={() => {
-              if (chatInput.trim()) {
-                sendChat(chatInput);
-                setChatInput("");
-              }
-            }}
+            onClick={() => handleSendLocalChat(chatInput)}
             className="rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-3.5 py-2 text-xs font-black text-white shadow-xl hover:scale-105 transition cursor-pointer border border-white/20 whitespace-nowrap"
           >
             ส่ง 💬

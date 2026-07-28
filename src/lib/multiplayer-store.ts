@@ -38,6 +38,7 @@ export function useMultiplayer(myPlayerInfo: {
   zone: string;
 }) {
   const [players, setPlayers] = useState<RemotePlayer[]>(() => Array.from(remotePlayersMap.values()));
+  const [myChat, setMyChat] = useState<{ msg: string; time: number } | null>(null);
   const lastMoveSentRef = useRef<number>(0);
   const infoRef = useRef(myPlayerInfo);
 
@@ -98,7 +99,13 @@ export function useMultiplayer(myPlayerInfo: {
               const updatedList: RemotePlayer[] = [];
 
               for (const p of data.players) {
-                if (p.id === myId) continue; // Skip self
+                if (p.id === myId) {
+                  // Catch self chat message if broadcasted
+                  if (p.chatMsg && p.chatTime) {
+                    setMyChat({ msg: p.chatMsg, time: p.chatTime });
+                  }
+                  continue;
+                }
 
                 const existing = remotePlayersMap.get(p.id);
                 const renderX = existing ? existing.renderX : 0;
@@ -214,17 +221,21 @@ export function useMultiplayer(myPlayerInfo: {
   };
 
   const sendChat = (text: string) => {
-    if (wsInstance && wsInstance.readyState === WebSocket.OPEN && text.trim()) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
       try {
         wsInstance.send(
           JSON.stringify({
             type: "chat",
-            text: text.trim(),
+            text: trimmed,
           })
         );
       } catch {}
     }
+    setMyChat({ msg: trimmed, time: Date.now() });
   };
 
-  return { remotePlayers: players, sendMove, sendChat };
+  return { remotePlayers: players, sendMove, sendChat, myChat };
 }
