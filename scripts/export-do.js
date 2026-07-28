@@ -11,11 +11,6 @@ if (fs.existsSync(indexPath)) {
 import { DurableObject } from "cloudflare:workers";
 
 export class GameRoomDO extends DurableObject {
-  constructor(ctx, env) {
-    super(ctx, env);
-    this.players = new Map();
-  }
-
   async fetch(request) {
     const upgradeHeader = request.headers.get("Upgrade");
     if (!upgradeHeader || upgradeHeader.toLowerCase() !== "websocket") {
@@ -31,36 +26,34 @@ export class GameRoomDO extends DurableObject {
     try {
       if (typeof message !== "string") return;
       const data = JSON.parse(message);
+      let state = ws.deserializeAttachment();
+
       if (data.type === "join") {
-        const state = {
+        state = {
           id: data.id || \`p_\${Date.now()}_\${Math.random().toString(36).slice(2, 6)}\`,
           name: data.name || "นักชีววิทยา",
           avatar: data.avatar || "/avatars/biologist_male.jpg",
-          x: data.x ?? 700,
-          y: data.y ?? 700,
+          x: data.x ?? 480,
+          y: data.y ?? 350,
           direction: data.direction || "down",
           isMoving: false,
           zone: data.zone || "overworld",
         };
-        this.players.set(ws, state);
+        ws.serializeAttachment(state);
         this.broadcastState();
-      } else if (data.type === "move") {
-        const state = this.players.get(ws);
-        if (state) {
-          state.x = data.x ?? state.x;
-          state.y = data.y ?? state.y;
-          state.direction = data.direction || state.direction;
-          state.isMoving = !!data.isMoving;
-          if (data.zone) state.zone = data.zone;
-          this.broadcastState();
-        }
-      } else if (data.type === "chat") {
-        const state = this.players.get(ws);
-        if (state && data.text) {
-          state.chatMsg = String(data.text).slice(0, 100);
-          state.chatTime = Date.now();
-          this.broadcastState();
-        }
+      } else if (data.type === "move" && state) {
+        state.x = data.x ?? state.x;
+        state.y = data.y ?? state.y;
+        state.direction = data.direction || state.direction;
+        state.isMoving = !!data.isMoving;
+        if (data.zone) state.zone = data.zone;
+        ws.serializeAttachment(state);
+        this.broadcastState();
+      } else if (data.type === "chat" && state) {
+        state.chatMsg = String(data.text).slice(0, 100);
+        state.chatTime = Date.now();
+        ws.serializeAttachment(state);
+        this.broadcastState();
       }
     } catch (err) {
       console.error("GameRoomDO msg error:", err);
@@ -68,24 +61,29 @@ export class GameRoomDO extends DurableObject {
   }
 
   async webSocketClose(ws) {
-    this.players.delete(ws);
+    try { ws.close(); } catch {}
     this.broadcastState();
   }
 
   async webSocketError(ws) {
-    this.players.delete(ws);
+    try { ws.close(); } catch {}
     this.broadcastState();
   }
 
   broadcastState() {
-    const playerList = Array.from(this.players.values());
-    const payload = JSON.stringify({ type: "players_update", players: playerList });
-    for (const [ws] of this.players) {
+    const sockets = this.ctx.getWebSockets();
+    const playerList = [];
+    for (const s of sockets) {
       try {
-        ws.send(payload);
-      } catch (e) {
-        this.players.delete(ws);
-      }
+        const att = s.deserializeAttachment();
+        if (att) playerList.push(att);
+      } catch {}
+    }
+    const payload = JSON.stringify({ type: "players_update", players: playerList });
+    for (const s of sockets) {
+      try {
+        s.send(payload);
+      } catch {}
     }
   }
 }

@@ -14,8 +14,6 @@ export interface PlayerState {
 }
 
 export class GameRoomDO extends DurableObject {
-  private players: Map<WebSocket, PlayerState> = new Map();
-
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get("Upgrade");
     if (!upgradeHeader || upgradeHeader.toLowerCase() !== "websocket") {
@@ -38,39 +36,36 @@ export class GameRoomDO extends DurableObject {
       if (typeof message !== "string") return;
       const data = JSON.parse(message);
 
+      let state = ws.deserializeAttachment() as PlayerState | null;
+
       if (data.type === "join") {
-        const state: PlayerState = {
+        state = {
           id: data.id || `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           name: data.name || "นักชีววิทยา",
           avatar: data.avatar || "/avatars/biologist_male.jpg",
-          x: data.x ?? 700,
-          y: data.y ?? 700,
+          x: data.x ?? 480,
+          y: data.y ?? 350,
           direction: data.direction || "down",
           isMoving: false,
           zone: data.zone || "overworld",
         };
-        this.players.set(ws, state);
-
-        // Broadcast current players list to everyone
+        ws.serializeAttachment(state);
         this.broadcastState();
-      } else if (data.type === "move") {
-        const state = this.players.get(ws);
-        if (state) {
-          state.x = data.x ?? state.x;
-          state.y = data.y ?? state.y;
-          state.direction = data.direction || state.direction;
-          state.isMoving = !!data.isMoving;
-          if (data.zone) state.zone = data.zone;
+      } else if (data.type === "move" && state) {
+        state.x = data.x ?? state.x;
+        state.y = data.y ?? state.y;
+        state.direction = data.direction || state.direction;
+        state.isMoving = !!data.isMoving;
+        if (data.zone) state.zone = data.zone;
 
-          this.broadcastState();
-        }
-      } else if (data.type === "chat") {
-        const state = this.players.get(ws);
-        if (state && data.text) {
-          state.chatMsg = String(data.text).slice(0, 100);
-          state.chatTime = Date.now();
-          this.broadcastState();
-        }
+        ws.serializeAttachment(state);
+        this.broadcastState();
+      } else if (data.type === "chat" && state) {
+        state.chatMsg = String(data.text).slice(0, 100);
+        state.chatTime = Date.now();
+
+        ws.serializeAttachment(state);
+        this.broadcastState();
       }
     } catch (err) {
       console.error("GameRoomDO msg error:", err);
@@ -78,26 +73,36 @@ export class GameRoomDO extends DurableObject {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
-    this.players.delete(ws);
+    try {
+      ws.close();
+    } catch {}
     this.broadcastState();
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
-    this.players.delete(ws);
+    try {
+      ws.close();
+    } catch {}
     this.broadcastState();
   }
 
   private broadcastState(): void {
-    const playerList: PlayerState[] = Array.from(this.players.values());
+    const sockets = this.ctx.getWebSockets();
+    const playerList: PlayerState[] = [];
+
+    for (const s of sockets) {
+      try {
+        const att = s.deserializeAttachment() as PlayerState | null;
+        if (att) playerList.push(att);
+      } catch {}
+    }
+
     const payload = JSON.stringify({ type: "players_update", players: playerList });
 
-    for (const [ws] of this.players) {
+    for (const s of sockets) {
       try {
-        ws.send(payload);
-      } catch (e) {
-        // Handle stale connection cleanup
-        this.players.delete(ws);
-      }
+        s.send(payload);
+      } catch {}
     }
   }
 }

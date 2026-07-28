@@ -14,12 +14,12 @@ let remotePlayersMap: Map<string, RemotePlayer> = new Map();
 export function getMyPlayerId(): string {
   if (typeof window === "undefined") return "p_ssr";
   if (!currentMyId) {
-    const cached = localStorage.getItem("pw_player_id");
+    const cached = sessionStorage.getItem("pw_session_id");
     if (cached) {
       currentMyId = cached;
     } else {
       currentMyId = `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      localStorage.setItem("pw_player_id", currentMyId);
+      sessionStorage.setItem("pw_session_id", currentMyId);
     }
   }
   return currentMyId;
@@ -35,6 +35,11 @@ export function useMultiplayer(myPlayerInfo: {
 }) {
   const [players, setPlayers] = useState<RemotePlayer[]>([]);
   const lastMoveSentRef = useRef<number>(0);
+  const infoRef = useRef(myPlayerInfo);
+
+  useEffect(() => {
+    infoRef.current = myPlayerInfo;
+  }, [myPlayerInfo.x, myPlayerInfo.y, myPlayerInfo.name, myPlayerInfo.avatar]);
 
   useEffect(() => {
     const myId = getMyPlayerId();
@@ -58,12 +63,12 @@ export function useMultiplayer(myPlayerInfo: {
             JSON.stringify({
               type: "join",
               id: myId,
-              name: myPlayerInfo.name,
-              avatar: myPlayerInfo.avatar,
-              x: myPlayerInfo.x,
-              y: myPlayerInfo.y,
-              direction: myPlayerInfo.direction,
-              zone: myPlayerInfo.zone,
+              name: infoRef.current.name,
+              avatar: infoRef.current.avatar,
+              x: infoRef.current.x,
+              y: infoRef.current.y,
+              direction: infoRef.current.direction,
+              zone: infoRef.current.zone,
             })
           );
         };
@@ -104,7 +109,7 @@ export function useMultiplayer(myPlayerInfo: {
 
         ws.onclose = () => {
           wsInstance = null;
-          setTimeout(connect, 3000);
+          setTimeout(connect, 2000);
         };
 
         ws.onerror = () => {
@@ -120,14 +125,33 @@ export function useMultiplayer(myPlayerInfo: {
 
     connect();
 
+    // Heartbeat ping every 4 seconds to keep WebSocket alive & active
+    const heartbeat = setInterval(() => {
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(
+          JSON.stringify({
+            type: "move",
+            x: Math.round(infoRef.current.x),
+            y: Math.round(infoRef.current.y),
+            direction: infoRef.current.direction,
+            isMoving: false,
+            zone: infoRef.current.zone,
+          })
+        );
+      } else {
+        connect();
+      }
+    }, 4000);
+
     return () => {
       subscribers.delete(handleSub);
+      clearInterval(heartbeat);
     };
   }, []);
 
   const sendMove = (x: number, y: number, direction: string, isMoving: boolean, zone: string) => {
     const now = Date.now();
-    if (now - lastMoveSentRef.current < 70) return; // Throttle ~14 updates/sec max
+    if (now - lastMoveSentRef.current < 70) return;
     lastMoveSentRef.current = now;
 
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
