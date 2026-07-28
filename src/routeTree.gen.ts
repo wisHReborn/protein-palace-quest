@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameStructuralRouteImport } from './routes/game.structural'
+import { Route as GameImmuneRouteImport } from './routes/game.immune'
 import { Route as GameFoldingRouteImport } from './routes/game.folding'
 import { Route as GameEnzymeRouteImport } from './routes/game.enzyme'
 
@@ -30,6 +31,11 @@ const GameStructuralRoute = GameStructuralRouteImport.update({
   path: '/game/structural',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameImmuneRoute = GameImmuneRouteImport.update({
+  id: '/game/immune',
+  path: '/game/immune',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GameFoldingRoute = GameFoldingRouteImport.update({
   id: '/game/folding',
   path: '/game/folding',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/map': typeof MapRoute
   '/game/enzyme': typeof GameEnzymeRoute
   '/game/folding': typeof GameFoldingRoute
+  '/game/immune': typeof GameImmuneRoute
   '/game/structural': typeof GameStructuralRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/map': typeof MapRoute
   '/game/enzyme': typeof GameEnzymeRoute
   '/game/folding': typeof GameFoldingRoute
+  '/game/immune': typeof GameImmuneRoute
   '/game/structural': typeof GameStructuralRoute
 }
 export interface FileRoutesById {
@@ -61,6 +69,7 @@ export interface FileRoutesById {
   '/map': typeof MapRoute
   '/game/enzyme': typeof GameEnzymeRoute
   '/game/folding': typeof GameFoldingRoute
+  '/game/immune': typeof GameImmuneRoute
   '/game/structural': typeof GameStructuralRoute
 }
 export interface FileRouteTypes {
@@ -70,15 +79,23 @@ export interface FileRouteTypes {
     | '/map'
     | '/game/enzyme'
     | '/game/folding'
+    | '/game/immune'
     | '/game/structural'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/map' | '/game/enzyme' | '/game/folding' | '/game/structural'
+  to:
+    | '/'
+    | '/map'
+    | '/game/enzyme'
+    | '/game/folding'
+    | '/game/immune'
+    | '/game/structural'
   id:
     | '__root__'
     | '/'
     | '/map'
     | '/game/enzyme'
     | '/game/folding'
+    | '/game/immune'
     | '/game/structural'
   fileRoutesById: FileRoutesById
 }
@@ -87,6 +104,7 @@ export interface RootRouteChildren {
   MapRoute: typeof MapRoute
   GameEnzymeRoute: typeof GameEnzymeRoute
   GameFoldingRoute: typeof GameFoldingRoute
+  GameImmuneRoute: typeof GameImmuneRoute
   GameStructuralRoute: typeof GameStructuralRoute
 }
 
@@ -113,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameStructuralRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/game/immune': {
+      id: '/game/immune'
+      path: '/game/immune'
+      fullPath: '/game/immune'
+      preLoaderRoute: typeof GameImmuneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/game/folding': {
       id: '/game/folding'
       path: '/game/folding'
@@ -135,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   MapRoute: MapRoute,
   GameEnzymeRoute: GameEnzymeRoute,
   GameFoldingRoute: GameFoldingRoute,
+  GameImmuneRoute: GameImmuneRoute,
   GameStructuralRoute: GameStructuralRoute,
 }
 export const routeTree = rootRouteImport
