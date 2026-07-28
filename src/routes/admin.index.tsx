@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback, memo } from "react";
 import {
   useGameData,
   usePlays,
@@ -213,7 +213,220 @@ function QuestionsTab() {
   );
 }
 
-const inp = "w-full rounded-xl border border-pink-500/30 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-500/30";
+const inp = "w-full rounded-xl border border-pink-500/30 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-500/30 transition-all";
+
+// ⚡ Memoized Question Card with Debounced Save for 60fps Input Performance
+const QuestionCard = memo(function QuestionCard({
+  q,
+  qIdx,
+  zoneKey,
+  data,
+  save,
+  onPreview,
+  onDeleteRequest,
+}: {
+  q: KahootQ;
+  qIdx: number;
+  zoneKey: ZoneKey;
+  data: GameData;
+  save: (d: GameData) => void;
+  onPreview: (item: any) => void;
+  onDeleteRequest: (idx: number) => void;
+}) {
+  const [localQ, setLocalQ] = useState<KahootQ>(q);
+  const debounceTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    setLocalQ(q);
+  }, [q.id, q.prompt, q.options, q.correctIndex, q.difficulty, q.points, q.explanation]);
+
+  const commitUpdate = useCallback(
+    async (updatedItem: KahootQ) => {
+      const list = [...(data[zoneKey] || [])];
+      list[qIdx] = updatedItem;
+      save({ ...data, [zoneKey]: list });
+      if (updatedItem.id) {
+        await updateQuestionD1(updatedItem.id, zoneKey, updatedItem);
+      }
+    },
+    [data, zoneKey, qIdx, save]
+  );
+
+  const handleFieldChange = (patch: Partial<KahootQ>) => {
+    const updated = { ...localQ, ...patch };
+    setLocalQ(updated);
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      commitUpdate(updated);
+    }, 600);
+  };
+
+  const handleOptionChange = (optIdx: number, val: string) => {
+    const opts = [...localQ.options] as [string, string, string, string];
+    opts[optIdx] = val;
+    const updated = { ...localQ, options: opts };
+    setLocalQ(updated);
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      commitUpdate(updated);
+    }, 600);
+  };
+
+  const handleBlur = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    commitUpdate(localQ);
+  };
+
+  return (
+    <div className="rounded-2xl border-2 border-pink-500/30 bg-slate-950 p-5 space-y-4 shadow-inner">
+      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+        <div className="font-black text-sm text-pink-300 flex items-center gap-2">
+          <span>ข้อที่ {qIdx + 1}</span>
+          <span className="text-xs text-slate-500 font-mono">(ID: {localQ.id})</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onPreview(localQ)}
+            className="rounded-full bg-pink-500/20 px-3 py-1 text-xs font-bold text-pink-300 border border-pink-500/40 hover:bg-pink-500/30 cursor-pointer"
+          >
+            👁️ พรีวิว
+          </button>
+          <button
+            onClick={() => onDeleteRequest(qIdx)}
+            className="rounded-full bg-rose-950/80 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30 hover:bg-rose-900 cursor-pointer"
+          >
+            🗑️ ลบโจทย์ข้อนี้
+          </button>
+        </div>
+      </div>
+
+      {/* Prompt Input */}
+      <div>
+        <label className="text-xs font-bold text-slate-400 block mb-1">คำถามประจำข้อ (Question Prompt):</label>
+        <textarea
+          className={inp}
+          rows={2}
+          value={localQ.prompt}
+          onChange={(e) => handleFieldChange({ prompt: e.target.value })}
+          onBlur={handleBlur}
+          placeholder="พิมพ์โจทย์คำถาม..."
+        />
+      </div>
+
+      {/* 4 Choices Inputs */}
+      <div>
+        <label className="text-xs font-bold text-slate-400 block mb-2">ตัวเลือก Kahoot ทั้ง 4 ตัวเลือก (4 Options):</label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center gap-2 rounded-xl bg-red-950/60 p-2 border border-red-500/40">
+            <span className="text-sm font-black text-red-400 w-6 text-center">🔴 A</span>
+            <input
+              className={inp}
+              value={localQ.options[0]}
+              onChange={(e) => handleOptionChange(0, e.target.value)}
+              onBlur={handleBlur}
+              placeholder="ตัวเลือก A"
+            />
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-cyan-950/60 p-2 border border-cyan-500/40">
+            <span className="text-sm font-black text-cyan-400 w-6 text-center">🔷 B</span>
+            <input
+              className={inp}
+              value={localQ.options[1]}
+              onChange={(e) => handleOptionChange(1, e.target.value)}
+              onBlur={handleBlur}
+              placeholder="ตัวเลือก B"
+            />
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-amber-950/60 p-2 border border-amber-500/40">
+            <span className="text-sm font-black text-amber-400 w-6 text-center">💛 C</span>
+            <input
+              className={inp}
+              value={localQ.options[2]}
+              onChange={(e) => handleOptionChange(2, e.target.value)}
+              onBlur={handleBlur}
+              placeholder="ตัวเลือก C"
+            />
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-950/60 p-2 border border-emerald-500/40">
+            <span className="text-sm font-black text-emerald-400 w-6 text-center">🟢 D</span>
+            <input
+              className={inp}
+              value={localQ.options[3]}
+              onChange={(e) => handleOptionChange(3, e.target.value)}
+              onBlur={handleBlur}
+              placeholder="ตัวเลือก D"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Correct Answer & Difficulty & Points */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div>
+          <label className="text-xs font-bold text-slate-400 block mb-1">เฉลยข้อที่ถูกต้อง (Correct Choice):</label>
+          <select
+            className={inp + " font-black text-emerald-400"}
+            value={localQ.correctIndex}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              const updated = { ...localQ, correctIndex: val };
+              setLocalQ(updated);
+              commitUpdate(updated);
+            }}
+          >
+            <option value={0}>🔴 ตัวเลือก A ({localQ.options[0]})</option>
+            <option value={1}>🔷 ตัวเลือก B ({localQ.options[1]})</option>
+            <option value={2}>💛 ตัวเลือก C ({localQ.options[2]})</option>
+            <option value={3}>🟢 ตัวเลือก D ({localQ.options[3]})</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-slate-400 block mb-1">ระดับความยาก (Difficulty):</label>
+          <select
+            className={inp}
+            value={localQ.difficulty}
+            onChange={(e) => {
+              const val = e.target.value as any;
+              const updated = { ...localQ, difficulty: val };
+              setLocalQ(updated);
+              commitUpdate(updated);
+            }}
+          >
+            <option value="easy">ง่าย (Easy)</option>
+            <option value="medium">ปานกลาง (Medium)</option>
+            <option value="hard">ยาก (Hard)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-slate-400 block mb-1">คะแนน (Points):</label>
+          <input
+            type="number"
+            className={inp}
+            value={localQ.points}
+            onChange={(e) => handleFieldChange({ points: Number(e.target.value) })}
+            onBlur={handleBlur}
+          />
+        </div>
+      </div>
+
+      {/* Explanation Input */}
+      <div>
+        <label className="text-xs font-bold text-slate-400 block mb-1">คำอธิบายเฉลยทางชีววิทยา (Biology Explanation):</label>
+        <input
+          className={inp}
+          value={localQ.explanation}
+          onChange={(e) => handleFieldChange({ explanation: e.target.value })}
+          onBlur={handleBlur}
+          placeholder="พิมพ์คำอธิบายเฉลย..."
+        />
+      </div>
+    </div>
+  );
+});
 
 function KahootZoneEditor({
   zoneKey,
@@ -243,28 +456,6 @@ function KahootZoneEditor({
 
   // Modal State for Confirm Delete
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
-
-  const updateQ = async (index: number, patch: Partial<KahootQ>) => {
-    const list = [...questions];
-    const updatedItem = { ...list[index], ...patch };
-    list[index] = updatedItem;
-    save({ ...data, [zoneKey]: list });
-    if (updatedItem.id) {
-      await updateQuestionD1(updatedItem.id, zoneKey, updatedItem);
-    }
-  };
-
-  const updateOption = async (qIdx: number, optIdx: number, val: string) => {
-    const list = [...questions];
-    const opts = [...list[qIdx].options] as [string, string, string, string];
-    opts[optIdx] = val;
-    const updatedItem = { ...list[qIdx], options: opts };
-    list[qIdx] = updatedItem;
-    save({ ...data, [zoneKey]: list });
-    if (updatedItem.id) {
-      await updateQuestionD1(updatedItem.id, zoneKey, updatedItem);
-    }
-  };
 
   const handleOpenAddModal = () => {
     setNewQPrompt("");
@@ -342,134 +533,16 @@ function KahootZoneEditor({
 
       <div className="space-y-6">
         {questions.map((q, qIdx) => (
-          <div key={q.id} className="rounded-2xl border-2 border-pink-500/30 bg-slate-950 p-5 space-y-4 shadow-inner">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <div className="font-black text-sm text-pink-300 flex items-center gap-2">
-                <span>ข้อที่ {qIdx + 1}</span>
-                <span className="text-xs text-slate-500 font-mono">(ID: {q.id})</span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onPreview(q)}
-                  className="rounded-full bg-pink-500/20 px-3 py-1 text-xs font-bold text-pink-300 border border-pink-500/40 hover:bg-pink-500/30 cursor-pointer"
-                >
-                  👁️ พรีวิว
-                </button>
-                <button
-                  onClick={() => setDeletingIndex(qIdx)}
-                  className="rounded-full bg-rose-950/80 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30 hover:bg-rose-900 cursor-pointer"
-                >
-                  🗑️ ลบโจทย์ข้อนี้
-                </button>
-              </div>
-            </div>
-
-            {/* Prompt Input */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">คำถามประจำข้อ (Question Prompt):</label>
-              <textarea
-                className={inp}
-                rows={2}
-                value={q.prompt}
-                onChange={(e) => updateQ(qIdx, { prompt: e.target.value })}
-                placeholder="พิมพ์โจทย์คำถาม..."
-              />
-            </div>
-
-            {/* 4 Choices Inputs */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-2">ตัวเลือก Kahoot ทั้ง 4 ตัวเลือก (4 Options):</label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="flex items-center gap-2 rounded-xl bg-red-950/60 p-2 border border-red-500/40">
-                  <span className="text-sm font-black text-red-400 w-6 text-center">🔴 A</span>
-                  <input
-                    className={inp}
-                    value={q.options[0]}
-                    onChange={(e) => updateOption(qIdx, 0, e.target.value)}
-                    placeholder="ตัวเลือก A"
-                  />
-                </div>
-                <div className="flex items-center gap-2 rounded-xl bg-cyan-950/60 p-2 border border-cyan-500/40">
-                  <span className="text-sm font-black text-cyan-400 w-6 text-center">🔷 B</span>
-                  <input
-                    className={inp}
-                    value={q.options[1]}
-                    onChange={(e) => updateOption(qIdx, 1, e.target.value)}
-                    placeholder="ตัวเลือก B"
-                  />
-                </div>
-                <div className="flex items-center gap-2 rounded-xl bg-amber-950/60 p-2 border border-amber-500/40">
-                  <span className="text-sm font-black text-amber-400 w-6 text-center">💛 C</span>
-                  <input
-                    className={inp}
-                    value={q.options[2]}
-                    onChange={(e) => updateOption(qIdx, 2, e.target.value)}
-                    placeholder="ตัวเลือก C"
-                  />
-                </div>
-                <div className="flex items-center gap-2 rounded-xl bg-emerald-950/60 p-2 border border-emerald-500/40">
-                  <span className="text-sm font-black text-emerald-400 w-6 text-center">🟢 D</span>
-                  <input
-                    className={inp}
-                    value={q.options[3]}
-                    onChange={(e) => updateOption(qIdx, 3, e.target.value)}
-                    placeholder="ตัวเลือก D"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Correct Answer & Difficulty & Points */}
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">เฉลยข้อที่ถูกต้อง (Correct Choice):</label>
-                <select
-                  className={inp + " font-black text-emerald-400"}
-                  value={q.correctIndex}
-                  onChange={(e) => updateQ(qIdx, { correctIndex: Number(e.target.value) })}
-                >
-                  <option value={0}>🔴 ตัวเลือก A ({q.options[0]})</option>
-                  <option value={1}>🔷 ตัวเลือก B ({q.options[1]})</option>
-                  <option value={2}>💛 ตัวเลือก C ({q.options[2]})</option>
-                  <option value={3}>🟢 ตัวเลือก D ({q.options[3]})</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">ระดับความยาก (Difficulty):</label>
-                <select
-                  className={inp}
-                  value={q.difficulty}
-                  onChange={(e) => updateQ(qIdx, { difficulty: e.target.value as any })}
-                >
-                  <option value="easy">ง่าย (Easy)</option>
-                  <option value="medium">ปานกลาง (Medium)</option>
-                  <option value="hard">ยาก (Hard)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">คะแนน (Points):</label>
-                <input
-                  type="number"
-                  className={inp}
-                  value={q.points}
-                  onChange={(e) => updateQ(qIdx, { points: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-
-            {/* Explanation Input */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">คำอธิบายเฉลยทางชีววิทยา (Biology Explanation):</label>
-              <input
-                className={inp}
-                value={q.explanation}
-                onChange={(e) => updateQ(qIdx, { explanation: e.target.value })}
-                placeholder="พิมพ์คำอธิบายเฉลย..."
-              />
-            </div>
-          </div>
+          <QuestionCard
+            key={q.id}
+            q={q}
+            qIdx={qIdx}
+            zoneKey={zoneKey}
+            data={data}
+            save={save}
+            onPreview={onPreview}
+            onDeleteRequest={setDeletingIndex}
+          />
         ))}
       </div>
 
