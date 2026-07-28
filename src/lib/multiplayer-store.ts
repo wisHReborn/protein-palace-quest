@@ -33,7 +33,7 @@ export function useMultiplayer(myPlayerInfo: {
   direction: string;
   zone: string;
 }) {
-  const [players, setPlayers] = useState<RemotePlayer[]>([]);
+  const [players, setPlayers] = useState<RemotePlayer[]>(() => Array.from(remotePlayersMap.values()));
   const lastMoveSentRef = useRef<number>(0);
   const infoRef = useRef(myPlayerInfo);
 
@@ -44,9 +44,32 @@ export function useMultiplayer(myPlayerInfo: {
   useEffect(() => {
     const myId = getMyPlayerId();
 
+    function sendJoin(ws: WebSocket) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "join",
+            id: myId,
+            name: infoRef.current.name,
+            avatar: infoRef.current.avatar,
+            rx: infoRef.current.rx,
+            ry: infoRef.current.ry,
+            direction: infoRef.current.direction,
+            zone: infoRef.current.zone,
+          })
+        );
+      }
+    }
+
     function connect() {
       if (typeof window === "undefined") return;
-      if (wsInstance && (wsInstance.readyState === WebSocket.OPEN || wsInstance.readyState === WebSocket.CONNECTING)) {
+
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        sendJoin(wsInstance);
+        return;
+      }
+
+      if (wsInstance && wsInstance.readyState === WebSocket.CONNECTING) {
         return;
       }
 
@@ -59,18 +82,7 @@ export function useMultiplayer(myPlayerInfo: {
         wsInstance = ws;
 
         ws.onopen = () => {
-          ws.send(
-            JSON.stringify({
-              type: "join",
-              id: myId,
-              name: infoRef.current.name,
-              avatar: infoRef.current.avatar,
-              rx: infoRef.current.rx,
-              ry: infoRef.current.ry,
-              direction: infoRef.current.direction,
-              zone: infoRef.current.zone,
-            })
-          );
+          sendJoin(ws);
         };
 
         ws.onmessage = (event) => {
@@ -109,7 +121,7 @@ export function useMultiplayer(myPlayerInfo: {
 
         ws.onclose = () => {
           wsInstance = null;
-          setTimeout(connect, 2000);
+          setTimeout(connect, 1500);
         };
 
         ws.onerror = () => {
@@ -123,9 +135,12 @@ export function useMultiplayer(myPlayerInfo: {
     };
     subscribers.add(handleSub);
 
+    // Initial sync immediately upon subscribe
+    handleSub(Array.from(remotePlayersMap.values()));
+
     connect();
 
-    // Heartbeat ping every 3.5 seconds
+    // Heartbeat ping & re-join sync every 3 seconds
     const heartbeat = setInterval(() => {
       if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
         wsInstance.send(
@@ -141,7 +156,7 @@ export function useMultiplayer(myPlayerInfo: {
       } else {
         connect();
       }
-    }, 3500);
+    }, 3000);
 
     return () => {
       subscribers.delete(handleSub);
@@ -151,7 +166,7 @@ export function useMultiplayer(myPlayerInfo: {
 
   const sendMove = (rx: number, ry: number, direction: string, isMoving: boolean, zone: string) => {
     const now = Date.now();
-    if (now - lastMoveSentRef.current < 60) return;
+    if (now - lastMoveSentRef.current < 50) return;
     lastMoveSentRef.current = now;
 
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
