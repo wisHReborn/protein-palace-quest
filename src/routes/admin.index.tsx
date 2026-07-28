@@ -26,7 +26,7 @@ export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
 });
 
-type Tab = "overview" | "questions" | "settings" | "users" | "guide";
+type Tab = "overview" | "questions" | "chests" | "settings" | "users" | "guide";
 
 function AdminDashboard() {
   const nav = useNavigate();
@@ -73,6 +73,7 @@ function AdminDashboard() {
           {([
             ["overview", "📊 ภาพรวมสถิติ"],
             ["questions", "📝 จัดการโจทย์ Kahoot ทั้ง 4 ด่าน"],
+            ["chests", "🧰 จัดการกล่องสมบัติชีวะ"],
             ["settings", "⚙️ ตั้งค่าระบบ & เวลา"],
             ["users", "👥 ประวัติผู้เล่น"],
             ["guide", "💡 คำแนะนำผู้ดูแล"],
@@ -95,6 +96,7 @@ function AdminDashboard() {
       <main className="mx-auto max-w-7xl p-6">
         {tab === "overview" && <Overview />}
         {tab === "questions" && <QuestionsTab />}
+        {tab === "chests" && <ChestsTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "users" && <UsersTab />}
         {tab === "guide" && <GuideTab />}

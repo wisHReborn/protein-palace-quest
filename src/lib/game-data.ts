@@ -9,7 +9,7 @@ export type Progress = {
 export type KahootQ = {
   id: string;
   prompt: string;
-  options: [string, string, string, string]; // 4 Choices: A (Red Triangle), B (Cyan Diamond), C (Yellow Circle), D (Green Square)
+  options: [string, string, string, string]; // 4 Choices: A, B, C, D
   correctIndex: number; // 0 = A, 1 = B, 2 = C, 3 = D
   difficulty: "easy" | "medium" | "hard";
   points: number;
@@ -17,11 +17,18 @@ export type KahootQ = {
   extraVisual?: string; // Emoji / SVG visual context
 };
 
+export type ChestSettings = {
+  cooldownSec: number; // default 180 (3 minutes)
+  rewardPoints: number; // default 50
+  totalChests: number; // default 4
+};
+
 export type Settings = {
   structural: { timeSec: number; passing: number };
   folding: { timeSec: number; passing: number };
   enzyme: { timeSec: number; passing: number };
   immune: { timeSec: number; passing: number };
+  chest: ChestSettings;
   adminPassword: string;
 };
 
@@ -30,6 +37,7 @@ export type GameData = {
   folding: KahootQ[];
   enzyme: KahootQ[];
   immune: KahootQ[];
+  chestQuestions: KahootQ[];
   settings: Settings;
 };
 
@@ -138,7 +146,7 @@ export const defaultData: GameData = {
       id: "f3",
       prompt: "การเกิด Denaturation (การเสียสภาพของโปรตีน) ส่งผลกระทบต่อโครงสร้างโปรตีนอย่างไร?",
       options: [
-        "ทำลายเฉพาะพันธะเปปไทด์ในโครงสร้างปฐing",
+        "ทำลายเฉพาะพันธะเปปไทด์ในโครงสร้างปฐมภูมิ",
         "ทำลายพันธะในโครงสร้างระดับที่ 2, 3, 4 แต่สายปฐมภูมิมักยังคงอยู่",
         "สลายอะตอมคาร์บอนให้กลายเป็นแก๊ส CO₂",
         "เปลี่ยนกรดอะมิโนให้กลายเป็นโมเลกุลน้ำตาล",
@@ -289,11 +297,54 @@ export const defaultData: GameData = {
       extraVisual: "💪",
     },
   ],
+  chestQuestions: [
+    {
+      id: "c1",
+      prompt: "🎁 กล่องปริศนาชีวะ: กรดอะมิโนจำเป็น (Essential Amino Acids) ที่ร่างกายมนุษย์สร้างเองไม่ได้ มีทั้งหมดกี่ชนิด?",
+      options: ["9 ชนิด", "20 ชนิด", "5 ชนิด", "12 ชนิด"],
+      correctIndex: 0,
+      difficulty: "medium",
+      points: 25,
+      explanation: "กรดอะมิโนจำเป็นมี 9 ชนิดที่ร่างกายมนุษย์สังเคราะห์เองไม่ได้ ต้องได้รับจากอาหารเท่านั้น",
+      extraVisual: "🧰",
+    },
+    {
+      id: "c2",
+      prompt: "🎁 กล่องปริศนาชีวะ: โปรตีนชนิดใดในเม็ดเลือดแดง ทำหน้าที่จับและลำเลียงแก๊สออกซิเจนไปทั่วร่างกาย?",
+      options: ["ฮีโมโกลบิน (Hemoglobin)", "คอลลาเจน (Collagen)", "เคราติน (Keratin)", "ไฟบริน (Fibrin)"],
+      correctIndex: 0,
+      difficulty: "easy",
+      points: 25,
+      explanation: "ฮีโมโกลบินเป็นโปรตีนที่มีส่วนประกอบของธาตุเหล็ก (Heme) จับและลำเลียงออกซิเจนในเม็ดเลือดแดง",
+      extraVisual: "🩸",
+    },
+    {
+      id: "c3",
+      prompt: "🎁 กล่องปริศนาชีวะ: เคราติน (Keratin) เป็นโปรตีนโครงสร้างชนิดแข็งที่พบได้มากในส่วนใดของร่างกาย?",
+      options: ["เส้นผม เล็บ และผิวหนังชั้นนอก", "เนื้อตับและตับอ่อน", "กล้ามเนื้อหัวใจ", "เซลล์ประสาทสมอง"],
+      correctIndex: 0,
+      difficulty: "easy",
+      points: 25,
+      explanation: "เคราตินเป็นโปรตีนเหนียวทนทาน เป็นองค์ประกอบหลักของเส้นผม ขน เล็บ และผิวหนังชั้นนอก",
+      extraVisual: "💅",
+    },
+    {
+      id: "c4",
+      prompt: "🎁 กล่องปริศนาชีวะ: เอนไซม์ อะไมเลส (Amylase) ในน้ำลาย ทำหน้าที่ย่อยสารอาหารประเภทใดเป็นอันดับแรก?",
+      options: ["คาร์โบไฮเดรต (แป้ง)", "โปรตีน (เนื้อสัตว์)", "ไขมัน (น้ำมัน)", "วิตามินบี 12"],
+      correctIndex: 0,
+      difficulty: "easy",
+      points: 25,
+      explanation: "อะไมเลสเป็นเอนไซม์ในน้ำลายช่วยย่อยโมเลกุลแป้งให้กลายเป็นมอลโทสและน้ำตาลเดี่ยว",
+      extraVisual: "🍞",
+    },
+  ],
   settings: {
     structural: { timeSec: 20, passing: 20 },
     folding: { timeSec: 20, passing: 20 },
     enzyme: { timeSec: 15, passing: 20 },
     immune: { timeSec: 20, passing: 20 },
+    chest: { cooldownSec: 180, rewardPoints: 50, totalChests: 4 },
     adminPassword: "protein123",
   },
 };

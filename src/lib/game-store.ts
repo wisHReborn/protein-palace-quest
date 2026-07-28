@@ -97,7 +97,7 @@ export async function deleteQuestionD1(id: string): Promise<GameData | null> {
   return null;
 }
 
-export async function updateQuestionD1(id: string, zone: ZoneKey, question: KahootQ): Promise<GameData | null> {
+export async function updateQuestionD1(id: string, zone: ZoneKey | "chest", question: KahootQ): Promise<GameData | null> {
   lastSaveTimestamp = Date.now();
   try {
     const res = await fetch("/api/questions", {
@@ -115,6 +115,28 @@ export async function updateQuestionD1(id: string, zone: ZoneKey, question: Kaho
     }
   } catch (err) {
     console.error("updateQuestionD1 error:", err);
+  }
+  return null;
+}
+
+export async function addChestQuestionD1(question: KahootQ): Promise<GameData | null> {
+  lastSaveTimestamp = Date.now();
+  try {
+    const res = await fetch("/api/questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ zone: "chest", question }),
+    });
+    if (res.ok) {
+      const payload = await res.json();
+      if (payload.data) {
+        localGameDataCache = payload.data;
+        window.dispatchEvent(new CustomEvent("pw:data-updated", { detail: payload.data }));
+        return payload.data;
+      }
+    }
+  } catch (err) {
+    console.error("addChestQuestionD1 error:", err);
   }
   return null;
 }

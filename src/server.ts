@@ -42,12 +42,12 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
-function isH3SwallowedErrorBody(body: string): boolean {
+function isH3SwallowedErrorBody(body: string): function is (body: string) => boolean {
   try {
     const payload = JSON.parse(body) as { unhandled?: unknown; message?: unknown };
     return payload.unhandled === true && payload.message === "HTTPError";
   } catch {
-    return false;
+    return false as any;
   }
 }
 
@@ -87,21 +87,73 @@ function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
+async function ensureD1Tables(db: D1Database): Promise<void> {
+  try {
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS questions (
+        id TEXT PRIMARY KEY,
+        zone TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        option_a TEXT NOT NULL,
+        option_b TEXT NOT NULL,
+        option_c TEXT NOT NULL,
+        option_d TEXT NOT NULL,
+        correct_index INTEGER NOT NULL,
+        difficulty TEXT DEFAULT 'easy',
+        points INTEGER DEFAULT 15,
+        explanation TEXT DEFAULT '',
+        extra_visual TEXT DEFAULT '🧬',
+        created_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS zone_settings (
+        zone TEXT PRIMARY KEY,
+        time_sec INTEGER NOT NULL,
+        passing INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS admin_config (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS play_logs (
+        id TEXT PRIMARY KEY,
+        player_name TEXT NOT NULL,
+        zone TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        total_score INTEGER NOT NULL,
+        stars INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+    `);
+  } catch (err) {
+    console.error("D1 ensureD1Tables error:", err);
+  }
+}
+
 async function loadGameDataFromD1(db: D1Database): Promise<GameData> {
+  await ensureD1Tables(db);
+
   const qRows = await db.prepare("SELECT * FROM questions ORDER BY created_at ASC").all<any>();
   const sRows = await db.prepare("SELECT * FROM zone_settings").all<any>();
   const pwRow = await db.prepare("SELECT value FROM admin_config WHERE key = 'admin_password'").first<any>();
+  const chestCoolRow = await db.prepare("SELECT value FROM admin_config WHERE key = 'chest_cooldown_sec'").first<any>();
+  const chestRewardRow = await db.prepare("SELECT value FROM admin_config WHERE key = 'chest_reward_points'").first<any>();
 
   const result: GameData = {
     structural: [],
     folding: [],
     enzyme: [],
     immune: [],
+    chestQuestions: [],
     settings: {
-      structural: { timeSec: 30, passing: 60 },
-      folding: { timeSec: 30, passing: 60 },
-      enzyme: { timeSec: 30, passing: 60 },
-      immune: { timeSec: 30, passing: 60 },
+      structural: { timeSec: 20, passing: 20 },
+      folding: { timeSec: 20, passing: 20 },
+      enzyme: { timeSec: 15, passing: 20 },
+      immune: { timeSec: 20, passing: 20 },
+      chest: {
+        cooldownSec: chestCoolRow ? Number(chestCoolRow.value) : 180,
+        rewardPoints: chestRewardRow ? Number(chestRewardRow.value) : 50,
+        totalChests: 4,
+      },
       adminPassword: pwRow?.value ?? "protein123",
     },
   };
@@ -119,22 +171,27 @@ async function loadGameDataFromD1(db: D1Database): Promise<GameData> {
 
   if (qRows.results && qRows.results.length > 0) {
     for (const r of qRows.results) {
-      const zone = r.zone as ZoneKey;
-      if (zone in result) {
-        result[zone].push({
-          id: r.id,
-          prompt: r.prompt,
-          options: [r.option_a, r.option_b, r.option_c, r.option_d],
-          correctIndex: Number(r.correct_index),
-          difficulty: r.difficulty,
-          points: Number(r.points),
-          explanation: r.explanation,
-          extraVisual: r.extra_visual || "🧬",
-        });
+      const qItem: KahootQ = {
+        id: r.id,
+        prompt: r.prompt,
+        options: [r.option_a, r.option_b, r.option_c, r.option_d],
+        correctIndex: Number(r.correct_index),
+        difficulty: r.difficulty || "easy",
+        points: Number(r.points) || 15,
+        explanation: r.explanation || "",
+        extraVisual: r.extra_visual || "🧬",
+      };
+
+      if (r.zone === "chest") {
+        result.chestQuestions.push(qItem);
+      } else if (r.zone in result) {
+        (result as any)[r.zone].push(qItem);
       }
     }
-  } else {
-    return defaultData;
+  }
+
+  if (!result.chestQuestions || result.chestQuestions.length === 0) {
+    result.chestQuestions = defaultData.chestQuestions;
   }
 
   return result;
@@ -216,7 +273,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
     // ─── ➕ POST /api/questions ───
     if (path === "/api/questions" && request.method === "POST") {
       try {
-        const body = (await request.json()) as { zone: ZoneKey; question: KahootQ };
+        const body = (await request.json()) as { zone: ZoneKey | "chest"; question: KahootQ };
         const { zone, question } = body;
 
         if (!zone || !question || !question.prompt) {
@@ -243,7 +300,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
               question.difficulty ?? "easy",
               question.points ?? 15,
               question.explanation || "",
-              question.extraVisual || "🧬",
+              question.extraVisual || "🧰",
               Date.now()
             )
             .run();
@@ -286,7 +343,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
     // ─── ✏️ PUT /api/questions ───
     if (path === "/api/questions" && request.method === "PUT") {
       try {
-        const body = (await request.json()) as { id: string; zone: ZoneKey; question: KahootQ };
+        const body = (await request.json()) as { id: string; zone: ZoneKey | "chest"; question: KahootQ };
         const { id, zone, question } = body;
 
         if (!id || !question) {
@@ -310,7 +367,7 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
               question.difficulty ?? "easy",
               question.points ?? 15,
               question.explanation || "",
-              question.extraVisual || "🧬",
+              question.extraVisual || "🧰",
               id
             )
             .run();
@@ -344,6 +401,16 @@ async function handleApiRoute(request: Request, env: any): Promise<Response | nu
                   .bind(z, body.data.settings[z].timeSec, body.data.settings[z].passing)
                   .run();
               }
+            }
+            if (body.data?.settings?.chest) {
+              await db
+                .prepare("INSERT INTO admin_config (key, value) VALUES ('chest_cooldown_sec', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+                .bind(String(body.data.settings.chest.cooldownSec))
+                .run();
+              await db
+                .prepare("INSERT INTO admin_config (key, value) VALUES ('chest_reward_points', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+                .bind(String(body.data.settings.chest.rewardPoints))
+                .run();
             }
             if (body.data?.settings?.adminPassword) {
               await db
