@@ -37,11 +37,74 @@ export type ChestItem = {
 };
 
 export const CHESTS: ChestItem[] = [
-  { id: "chest_1", name: "กล่องสมบัติชีวะ #1 (ป่าโครงสร้าง)", x: 340, y: 140, icon: "🧰" },
-  { id: "chest_2", name: "กล่องสมบัติชีวะ #2 (ป่าพับม้วน)", x: 620, y: 140, icon: "🎁" },
-  { id: "chest_3", name: "กล่องสมบัติชีวะ #3 (ริมบ่อเอนไซม์)", x: 340, y: 490, icon: "📦" },
-  { id: "chest_4", name: "กล่องสมบัติชีวะ #4 (สวนภูมิคุ้มกัน)", x: 620, y: 490, icon: "💎" },
+  { id: "chest_1", name: "กล่องสมบัติชีวะ #1 (ซุ้มดอกไม้เหนือ)", x: 480, y: 110, icon: "🧰" },
+  { id: "chest_2", name: "กล่องสมบัติชีวะ #2 (ลานตลาดตะวันตก)", x: 380, y: 310, icon: "🎁" },
+  { id: "chest_3", name: "กล่องสมบัติชีวะ #3 (ลานตลาดตะวันออก)", x: 580, y: 310, icon: "📦" },
+  { id: "chest_4", name: "กล่องสมบัติชีวะ #4 (สะพานแม่น้ำใต้)", x: 480, y: 490, icon: "💎" },
 ];
+
+function TreasureChest3DSVG({ isCooldown }: { isCooldown: boolean }) {
+  if (isCooldown) {
+    return (
+      <svg className="w-full h-full drop-shadow-xl" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="50" cy="85" rx="35" ry="10" fill="rgba(0,0,0,0.5)" />
+        <path d="M20 45 L80 45 L75 80 L25 80 Z" fill="url(#coolBaseGrad)" stroke="#334155" strokeWidth="3" />
+        <path d="M15 35 Q50 20 85 35 L80 48 L20 48 Z" fill="url(#coolLidGrad)" stroke="#334155" strokeWidth="3" />
+        <rect x="32" y="36" width="6" height="42" fill="#475569" />
+        <rect x="62" y="36" width="6" height="42" fill="#475569" />
+        <rect x="44" y="44" width="12" height="14" rx="3" fill="#94a3b8" stroke="#334155" strokeWidth="2" />
+        <circle cx="50" cy="51" r="2.5" fill="#1e293b" />
+        <defs>
+          <linearGradient id="coolBaseGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#334155" />
+            <stop offset="100%" stopColor="#0f172a" />
+          </linearGradient>
+          <linearGradient id="coolLidGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#475569" />
+            <stop offset="100%" stopColor="#1e293b" />
+          </linearGradient>
+        </defs>
+      </svg>
+    );
+  }
+
+  return (
+    <svg className="w-full h-full filter drop-shadow-[0_10px_16px_rgba(245,158,11,0.8)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="45" fill="url(#goldGlow)" opacity="0.7" />
+      <ellipse cx="50" cy="85" rx="38" ry="10" fill="rgba(0,0,0,0.6)" />
+      <path d="M18 45 L82 45 L76 82 L24 82 Z" fill="url(#chestBodyGrad)" stroke="#78350f" strokeWidth="3" />
+      <line x1="20" y1="58" x2="80" y2="58" stroke="#92400e" strokeWidth="2" />
+      <line x1="22" y1="70" x2="78" y2="70" stroke="#92400e" strokeWidth="2" />
+      <path d="M14 34 Q50 15 86 34 L82 48 L18 48 Z" fill="url(#chestLidGrad)" stroke="#78350f" strokeWidth="3" />
+      <path d="M18 45 L26 45 L24 82 L18 82 Z" fill="url(#goldGrad)" />
+      <path d="M82 45 L74 45 L76 82 L82 82 Z" fill="url(#goldGrad)" />
+      <rect x="32" y="32" width="7" height="48" fill="url(#goldGrad)" stroke="#78350f" strokeWidth="1" />
+      <rect x="61" y="32" width="7" height="48" fill="url(#goldGrad)" stroke="#78350f" strokeWidth="1" />
+      <rect x="42" y="42" width="16" height="18" rx="4" fill="url(#goldGrad)" stroke="#78350f" strokeWidth="2" />
+      <polygon points="50,46 55,51 50,56 45,51" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" />
+      <circle cx="50" cy="51" r="1.5" fill="#ffffff" />
+      <defs>
+        <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="chestBodyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#d97706" />
+          <stop offset="100%" stopColor="#78350f" />
+        </linearGradient>
+        <linearGradient id="chestLidGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#b45309" />
+        </linearGradient>
+        <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="50%" stopColor="#eab308" />
+          <stop offset="100%" stopColor="#a16207" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 export function OverworldMapPage() {
   const [progress, saveProgress] = useProgress();
@@ -123,6 +186,22 @@ export function OverworldMapPage() {
       return next;
     });
   };
+
+  // Auto-Trigger Quiz Modal on Walking Collision / Proximity (เมื่อเดินชนให้มีโจทย์เด้งมาเลย!)
+  useEffect(() => {
+    if (activeChest || activeZone || showQuestLog || showLeaderboard || showAvatarPicker || activeNpc) return;
+
+    for (const chest of CHESTS) {
+      const cdUntil = chestCooldowns[chest.id] || 0;
+      if (cdUntil > Date.now()) continue;
+
+      const dist = Math.hypot(playerPos.x - chest.x, playerPos.y - chest.y);
+      if (dist < 65) {
+        handleOpenChest(chest);
+        break;
+      }
+    }
+  }, [playerPos, chestCooldowns, activeChest, activeZone, showQuestLog, showLeaderboard, showAvatarPicker, activeNpc]);
 
   // Audio state (Default: Muted/Stopped until player clicks play button)
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -772,58 +851,60 @@ export function OverworldMapPage() {
           const chestPx = (chest.x / 960) * mapBounds.w;
           const chestPy = (chest.y / 600) * mapBounds.h;
           const dist = Math.hypot(playerPos.x - chest.x, playerPos.y - chest.y);
-          const isNear = dist < 70;
+          const isNear = dist < 90;
 
           return (
             <div
               key={chest.id}
-              onClick={() => handleOpenChest(chest)}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 z-15 group ${
-                isCooldown ? "opacity-75" : "hover:scale-115 active:scale-95"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenChest(chest);
+              }}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 z-35 group ${
+                isCooldown ? "opacity-80" : "hover:scale-125 active:scale-95"
               }`}
               style={{
                 left: `${chestPx}px`,
                 top: `${chestPy}px`,
               }}
             >
-              {/* Glowing Energy Aura when Available */}
+              {/* Glowing Golden Aura Ring */}
               {!isCooldown && (
-                <div className="absolute inset-0 rounded-full bg-amber-400/40 blur-md animate-pulse group-hover:bg-amber-300/60" />
+                <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 blur-lg opacity-80 animate-pulse group-hover:opacity-100" />
               )}
 
               <div className="relative flex flex-col items-center">
                 {/* Chest Status Label Badge */}
                 <div
-                  className={`mb-1 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] md:text-[11px] font-black shadow-2xl border backdrop-blur-md whitespace-nowrap ${
+                  className={`mb-1.5 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs md:text-sm font-black shadow-2xl border-2 backdrop-blur-md whitespace-nowrap transition-transform ${
                     isCooldown
-                      ? "bg-slate-950/90 text-amber-300 border-amber-500/50"
+                      ? "bg-slate-950/95 text-amber-300 border-amber-500/60"
                       : isNear
-                      ? "bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 border-white animate-bounce"
-                      : "bg-slate-900/90 text-amber-200 border-amber-400/60"
+                      ? "bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 border-white scale-110 animate-bounce shadow-amber-500/50"
+                      : "bg-slate-950/90 text-amber-300 border-amber-400 shadow-amber-500/30"
                   }`}
                 >
                   {isCooldown ? (
                     <>
-                      <span>⏳ คูลดาวน์</span>
-                      <span className="font-mono text-amber-400">{timeStr}</span>
+                      <span className="text-base">⏳</span>
+                      <span>คูลดาวน์</span>
+                      <span className="font-mono text-amber-300 font-bold">{timeStr}</span>
                     </>
                   ) : (
                     <>
-                      <span>{chest.icon}</span>
-                      <span>{isNear ? "✨ แตะเปิดกล่องสมบัติ!" : chest.name}</span>
+                      <span className="text-base">{chest.icon}</span>
+                      <span>{isNear ? "✨ คลิกเปิดกล่องชีวะ!" : chest.name}</span>
                     </>
                   )}
                 </div>
 
-                {/* Chest Icon Asset */}
+                {/* Massive 3D Chest Icon */}
                 <div
-                  className={`relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl border-2 text-2xl sm:text-3xl shadow-2xl transition-transform ${
-                    isCooldown
-                      ? "bg-slate-900/90 border-slate-700 text-slate-400"
-                      : "bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 border-white text-white drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]"
+                  className={`relative flex h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 items-center justify-center transition-all ${
+                    isCooldown ? "scale-90 opacity-80" : "group-hover:scale-110 group-hover:rotate-3"
                   }`}
                 >
-                  {isCooldown ? "🔒" : "🧰"}
+                  <TreasureChest3DSVG isCooldown={isCooldown} />
                 </div>
               </div>
             </div>
