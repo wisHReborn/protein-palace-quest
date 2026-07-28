@@ -56,9 +56,9 @@ function AdminLogin() {
           />
         </div>
 
-        <p className="mt-2 text-xs text-slate-400">
+        {/* <p className="mt-2 text-xs text-slate-400">
           ค่าเริ่มต้น: <code className="rounded bg-slate-950 px-2 py-0.5 text-pink-300 border border-white/10 font-mono">protein123</code>
-        </p>
+        </p> */}
 
         {err && <div className="mt-3 rounded-xl bg-rose-950/80 border border-rose-500/40 p-3 text-xs font-bold text-rose-300">{err}</div>}
 
