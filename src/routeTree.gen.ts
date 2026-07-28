@@ -15,6 +15,7 @@ import { Route as GameStructuralRouteImport } from './routes/game.structural'
 import { Route as GameImmuneRouteImport } from './routes/game.immune'
 import { Route as GameFoldingRouteImport } from './routes/game.folding'
 import { Route as GameEnzymeRouteImport } from './routes/game.enzyme'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
 
 const MapRoute = MapRouteImport.update({
   id: '/map',
@@ -46,10 +47,16 @@ const GameEnzymeRoute = GameEnzymeRouteImport.update({
   path: '/game/enzyme',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/map': typeof MapRoute
+  '/admin/login': typeof AdminLoginRoute
   '/game/enzyme': typeof GameEnzymeRoute
   '/game/folding': typeof GameFoldingRoute
   '/game/immune': typeof GameImmuneRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/map': typeof MapRoute
+  '/admin/login': typeof AdminLoginRoute
   '/game/enzyme': typeof GameEnzymeRoute
   '/game/folding': typeof GameFoldingRoute
   '/game/immune': typeof GameImmuneRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/map': typeof MapRoute
+  '/admin/login': typeof AdminLoginRoute
   '/game/enzyme': typeof GameEnzymeRoute
   '/game/folding': typeof GameFoldingRoute
   '/game/immune': typeof GameImmuneRoute
@@ -77,6 +86,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/map'
+    | '/admin/login'
     | '/game/enzyme'
     | '/game/folding'
     | '/game/immune'
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/map'
+    | '/admin/login'
     | '/game/enzyme'
     | '/game/folding'
     | '/game/immune'
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/map'
+    | '/admin/login'
     | '/game/enzyme'
     | '/game/folding'
     | '/game/immune'
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MapRoute: typeof MapRoute
+  AdminLoginRoute: typeof AdminLoginRoute
   GameEnzymeRoute: typeof GameEnzymeRoute
   GameFoldingRoute: typeof GameFoldingRoute
   GameImmuneRoute: typeof GameImmuneRoute
@@ -152,12 +165,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameEnzymeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MapRoute: MapRoute,
+  AdminLoginRoute: AdminLoginRoute,
   GameEnzymeRoute: GameEnzymeRoute,
   GameFoldingRoute: GameFoldingRoute,
   GameImmuneRoute: GameImmuneRoute,
