@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toggleFullscreen } from "@/lib/fullscreen";
 import { useEffect, useState } from "react";
 import { useGameData, logPlay, recordResult, getCurrentPlayerName } from "@/lib/game-store";
 import type { KahootQ, ZoneKey } from "@/lib/game-data";
@@ -121,14 +122,8 @@ export function KahootQuizEngine({
     setDone(true);
   }
 
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
+  function handleToggleFullscreen() {
+    toggleFullscreen((active) => setIsFullscreen(active));
   }
 
   // Result Screen
@@ -233,7 +228,7 @@ export function KahootQuizEngine({
             ข้อ {idx + 1} / {questions.length}
           </div>
           <button
-            onClick={toggleFullscreen}
+            onClick={handleToggleFullscreen}
             className="rounded-full bg-slate-900/90 border border-white/20 px-3.5 py-2 text-xs font-extrabold text-slate-200 shadow-lg hover:bg-slate-800 transition cursor-pointer"
           >
             {isFullscreen ? "🔲" : "🖥️"}

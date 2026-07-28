@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { toggleFullscreen } from "@/lib/fullscreen";
 import { useRef, useState } from "react";
 import { usePlayerName, usePlayerAvatar, useProgress } from "@/lib/game-store";
 import { ZONES, PRESET_AVATARS } from "@/lib/game-data";
@@ -100,14 +101,8 @@ function Index() {
     reader.readAsDataURL(file);
   }
 
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
+  function handleToggleFullscreen() {
+    toggleFullscreen((active) => setIsFullscreen(active));
   }
 
   const totalUnlockedCount = COLLECTIONS.filter(
@@ -141,7 +136,7 @@ function Index() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={toggleFullscreen}
+            onClick={handleToggleFullscreen}
             className="flex items-center gap-1.5 rounded-xl bg-white/10 px-4 py-2 text-xs font-extrabold text-pink-200 border border-white/15 backdrop-blur hover:bg-white/20 transition shadow-lg cursor-pointer"
             title="สลับโหมดเต็มหน้าจอ Fullscreen"
           >

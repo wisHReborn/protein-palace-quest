@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toggleFullscreen } from "@/lib/fullscreen";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useProgress, usePlayerAvatar, usePlayerName, usePlays } from "@/lib/game-store";
 import { ZONES, PRESET_AVATARS } from "@/lib/game-data";
@@ -327,14 +328,8 @@ export function OverworldMapPage() {
     reader.readAsDataURL(file);
   }
 
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
+  function handleToggleFullscreen() {
+    toggleFullscreen((active) => setIsFullscreen(active));
   }
 
   function toggleMusic() {
@@ -406,7 +401,7 @@ export function OverworldMapPage() {
           </div>
 
           <button
-            onClick={toggleFullscreen}
+            onClick={handleToggleFullscreen}
             className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition"
             title="สลับเต็มหน้าจอ Fullscreen"
           >

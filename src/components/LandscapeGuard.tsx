@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toggleFullscreen } from "@/lib/fullscreen";
 
 export function LandscapeGuard() {
   const [isPortrait, setIsPortrait] = useState(false);
@@ -30,9 +31,7 @@ export function LandscapeGuard() {
 
   async function requestLandscape() {
     try {
-      if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen().catch(() => {});
-      }
+      await toggleFullscreen();
       if (window.screen?.orientation && "lock" in window.screen.orientation) {
         await (window.screen.orientation as any).lock("landscape");
       }
