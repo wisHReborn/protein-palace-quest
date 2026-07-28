@@ -58,8 +58,8 @@ export function OverworldMapPage() {
   const { remotePlayers, sendMove, sendChat } = useMultiplayer({
     name: playerName,
     avatar: playerAvatar,
-    x: playerPos.x,
-    y: playerPos.y,
+    rx: playerPos.x / (mapBounds.w || 1200),
+    ry: playerPos.y / (mapBounds.h || 800),
     direction: "down",
     zone: "overworld",
   });

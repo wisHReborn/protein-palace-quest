@@ -28,8 +28,8 @@ export function getMyPlayerId(): string {
 export function useMultiplayer(myPlayerInfo: {
   name: string;
   avatar: string;
-  x: number;
-  y: number;
+  rx: number;
+  ry: number;
   direction: string;
   zone: string;
 }) {
@@ -39,7 +39,7 @@ export function useMultiplayer(myPlayerInfo: {
 
   useEffect(() => {
     infoRef.current = myPlayerInfo;
-  }, [myPlayerInfo.x, myPlayerInfo.y, myPlayerInfo.name, myPlayerInfo.avatar]);
+  }, [myPlayerInfo.rx, myPlayerInfo.ry, myPlayerInfo.name, myPlayerInfo.avatar]);
 
   useEffect(() => {
     const myId = getMyPlayerId();
@@ -65,8 +65,8 @@ export function useMultiplayer(myPlayerInfo: {
               id: myId,
               name: infoRef.current.name,
               avatar: infoRef.current.avatar,
-              x: infoRef.current.x,
-              y: infoRef.current.y,
+              rx: infoRef.current.rx,
+              ry: infoRef.current.ry,
               direction: infoRef.current.direction,
               zone: infoRef.current.zone,
             })
@@ -83,8 +83,8 @@ export function useMultiplayer(myPlayerInfo: {
                 if (p.id === myId) continue; // Skip self
 
                 const existing = remotePlayersMap.get(p.id);
-                const renderX = existing ? existing.renderX : p.x;
-                const renderY = existing ? existing.renderY : p.y;
+                const renderX = existing ? existing.renderX : 0;
+                const renderY = existing ? existing.renderY : 0;
 
                 const remoteP: RemotePlayer = {
                   ...p,
@@ -125,14 +125,14 @@ export function useMultiplayer(myPlayerInfo: {
 
     connect();
 
-    // Heartbeat ping every 4 seconds to keep WebSocket alive & active
+    // Heartbeat ping every 3.5 seconds
     const heartbeat = setInterval(() => {
       if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
         wsInstance.send(
           JSON.stringify({
             type: "move",
-            x: Math.round(infoRef.current.x),
-            y: Math.round(infoRef.current.y),
+            rx: Number(infoRef.current.rx.toFixed(4)),
+            ry: Number(infoRef.current.ry.toFixed(4)),
             direction: infoRef.current.direction,
             isMoving: false,
             zone: infoRef.current.zone,
@@ -141,7 +141,7 @@ export function useMultiplayer(myPlayerInfo: {
       } else {
         connect();
       }
-    }, 4000);
+    }, 3500);
 
     return () => {
       subscribers.delete(handleSub);
@@ -149,17 +149,17 @@ export function useMultiplayer(myPlayerInfo: {
     };
   }, []);
 
-  const sendMove = (x: number, y: number, direction: string, isMoving: boolean, zone: string) => {
+  const sendMove = (rx: number, ry: number, direction: string, isMoving: boolean, zone: string) => {
     const now = Date.now();
-    if (now - lastMoveSentRef.current < 70) return;
+    if (now - lastMoveSentRef.current < 60) return;
     lastMoveSentRef.current = now;
 
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
       wsInstance.send(
         JSON.stringify({
           type: "move",
-          x: Math.round(x),
-          y: Math.round(y),
+          rx: Number(rx.toFixed(4)),
+          ry: Number(ry.toFixed(4)),
           direction,
           isMoving,
           zone,
