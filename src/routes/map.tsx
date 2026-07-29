@@ -37,10 +37,10 @@ export type ChestItem = {
 };
 
 export const CHESTS: ChestItem[] = [
-  { id: "chest_1", name: "กล่องสมบัติชีวะ #1 (ซุ้มดอกไม้เหนือ)", x: 480, y: 110, icon: "🧰" },
-  { id: "chest_2", name: "กล่องสมบัติชีวะ #2 (ลานตลาดตะวันตก)", x: 380, y: 310, icon: "🎁" },
-  { id: "chest_3", name: "กล่องสมบัติชีวะ #3 (ลานตลาดตะวันออก)", x: 580, y: 310, icon: "📦" },
-  { id: "chest_4", name: "กล่องสมบัติชีวะ #4 (สะพานแม่น้ำใต้)", x: 480, y: 490, icon: "💎" },
+  { id: "chest_1", name: "กล่อง", x: 480, y: 140, icon: "🧰" },
+  { id: "chest_2", name: "กล่อง", x: 330, y: 320, icon: "🎁" },
+  { id: "chest_3", name: "กล่อง", x: 630, y: 320, icon: "📦" },
+  { id: "chest_4", name: "กล่อง", x: 480, y: 480, icon: "💎" },
 ];
 
 function TreasureChest3DSVG({ isCooldown }: { isCooldown: boolean }) {
@@ -114,6 +114,7 @@ export function OverworldMapPage() {
   const [gameData] = useGameData();
   const nav = useNavigate();
 
+  // Modals & UI States
   const [activeZone, setActiveZone] = useState<(typeof ZONES)[number] | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -122,13 +123,58 @@ export function OverworldMapPage() {
 
   // Protein Treasure Chests State
   const [chestCooldowns, setChestCooldowns] = useState<Record<string, number>>({});
+  const [dismissedCooldowns, setDismissedCooldowns] = useState<Record<string, number>>({});
+  const [assignedChestQuestions, setAssignedChestQuestions] = useState<Record<string, KahootQ>>({});
   const [activeChest, setActiveChest] = useState<{ chest: ChestItem; question: KahootQ } | null>(null);
   const [selectedChestOption, setSelectedChestOption] = useState<number | null>(null);
   const [chestAnswered, setChestAnswered] = useState<{ isCorrect: boolean; rewardPoints: number } | null>(null);
   const [nowTime, setNowTime] = useState<number>(Date.now());
 
+  // Audio & Viewport States
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [mapBounds, setMapBounds] = useState({ w: 1200, h: 800 });
+
+  // Player position state
+  const [playerPos, setPlayerPos] = useState<{ x: number; y: number }>({ x: 480, y: 350 });
+  const [isWalking, setIsWalking] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Live Multiplayer Chat State
+  const [chatInput, setChatInput] = useState("");
+
+  // Touch / Click & Refs
+  const [clickMarker, setClickMarker] = useState<{ x: number; y: number; id: number } | null>(null);
+  const dpadDir = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const targetPosRef = useRef<{ x: number; y: number } | null>(null);
+  const targetBuildingKeyRef = useRef<string | null>(null);
+  const playerPosRef = useRef<{ x: number; y: number }>({ x: 480, y: 350 });
+  const lastClosedZoneRef = useRef<string | null>(null);
+  const lastClosedChestRef = useRef<string | null>(null);
+  const closedChestPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const { remotePlayers, sendMove, sendChat, myChat } = useMultiplayer({
+    name: playerName,
+    avatar: playerAvatar,
+    rx: playerPos.x / 960,
+    ry: playerPos.y / 600,
+    direction: "down",
+    zone: "overworld",
+  });
+
+  const handleSendLocalChat = (text: string) => {
+    if (!text.trim()) return;
+    sendChat(text.trim());
+    setChatInput("");
+  };
+
+  const sendMoveRef = useRef(sendMove);
+  useEffect(() => {
+    sendMoveRef.current = sendMove;
+  }, [sendMove]);
+
   // Load chest cooldowns from localStorage
   useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("pw_chest_cooldowns");
       if (stored) setChestCooldowns(JSON.parse(stored));
@@ -141,12 +187,50 @@ export function OverworldMapPage() {
     return () => clearInterval(timer);
   }, []);
 
+  const handleCloseChest = () => {
+    if (activeChest) {
+      const cId = activeChest.chest.id;
+      lastClosedChestRef.current = cId;
+      closedChestPosRef.current = { x: playerPosRef.current.x, y: playerPosRef.current.y };
+      // Set 15s temporary dismissal cooldown so walking away never re-triggers the modal
+      setDismissedCooldowns((prev) => ({
+        ...prev,
+        [cId]: Date.now() + 15000,
+      }));
+    }
+    setActiveChest(null);
+    setSelectedChestOption(null);
+    setChestAnswered(null);
+  };
+
   const handleOpenChest = (chest: ChestItem) => {
-    const cdUntil = chestCooldowns[chest.id] || 0;
+    const cd1 = chestCooldowns[chest.id] || 0;
+    const cd2 = dismissedCooldowns[chest.id] || 0;
+    const cdUntil = Math.max(cd1, cd2);
     if (cdUntil > Date.now()) return;
 
-    const qPool = gameData.chestQuestions?.length ? gameData.chestQuestions : defaultData.chestQuestions;
-    const randomQ = qPool[Math.floor(Math.random() * qPool.length)];
+    const qPool = (gameData?.chestQuestions && gameData.chestQuestions.length > 0)
+      ? gameData.chestQuestions
+      : defaultData.chestQuestions;
+
+    if (!qPool || qPool.length === 0) return;
+
+    // Gather question IDs/prompts currently assigned to OTHER chests on the map
+    const otherUsedQIds = new Set(
+      Object.entries(assignedChestQuestions)
+        .filter(([cId]) => cId !== chest.id)
+        .map(([_, q]) => q.id || q.prompt)
+    );
+
+    // Filter available pool to prevent duplicate questions on the map
+    const availablePool = qPool.filter((q) => !otherUsedQIds.has(q.id || q.prompt));
+    const poolToUse = availablePool.length > 0 ? availablePool : qPool;
+
+    const randomQ = poolToUse[Math.floor(Math.random() * poolToUse.length)];
+    if (!randomQ || !randomQ.prompt || !randomQ.options) return;
+
+    // Record the assigned question for this chest
+    setAssignedChestQuestions((prev) => ({ ...prev, [chest.id]: randomQ }));
 
     setActiveChest({ chest, question: randomQ });
     setSelectedChestOption(null);
@@ -180,74 +264,37 @@ export function OverworldMapPage() {
     const cdEndTime = Date.now() + cooldownSec * 1000;
     setChestCooldowns((prev) => {
       const next = { ...prev, [activeChest.chest.id]: cdEndTime };
-      try {
-        localStorage.setItem("pw_chest_cooldowns", JSON.stringify(next));
-      } catch {}
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("pw_chest_cooldowns", JSON.stringify(next));
+        } catch {}
+      }
       return next;
     });
   };
 
-  // Auto-Trigger Quiz Modal on Walking Collision / Proximity (เมื่อเดินชนให้มีโจทย์เด้งมาเลย!)
+  // Auto-Trigger Quiz Modal on Walking Collision / Proximity (เปิดกล่องเมื่อตัวละครเดินเข้าใกล้กล่อง dist <= 55)
   useEffect(() => {
     if (activeChest || activeZone || showQuestLog || showLeaderboard || showAvatarPicker || activeNpc) return;
 
     for (const chest of CHESTS) {
-      const cdUntil = chestCooldowns[chest.id] || 0;
-      if (cdUntil > Date.now()) continue;
-
+      const cd1 = chestCooldowns[chest.id] || 0;
+      const cd2 = dismissedCooldowns[chest.id] || 0;
+      const cdUntil = Math.max(cd1, cd2);
       const dist = Math.hypot(playerPos.x - chest.x, playerPos.y - chest.y);
-      if (dist < 65) {
-        handleOpenChest(chest);
-        break;
+
+      if (dist <= 55) {
+        if (cdUntil <= Date.now() && lastClosedChestRef.current !== chest.id) {
+          handleOpenChest(chest);
+          break;
+        }
+      } else if (dist > 85) {
+        if (lastClosedChestRef.current === chest.id) {
+          lastClosedChestRef.current = null;
+        }
       }
     }
-  }, [playerPos, chestCooldowns, activeChest, activeZone, showQuestLog, showLeaderboard, showAvatarPicker, activeNpc]);
-
-  // Audio state (Default: Muted/Stopped until player clicks play button)
-  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-
-  // Viewport dimensions
-  const [mapBounds, setMapBounds] = useState({ w: 1200, h: 800 });
-
-  // Player position state
-  const [playerPos, setPlayerPos] = useState<{ x: number; y: number }>({ x: 480, y: 350 });
-  const [isWalking, setIsWalking] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // Live Multiplayer Chat State
-  const [chatInput, setChatInput] = useState("");
-
-  const { remotePlayers, sendMove, sendChat, myChat } = useMultiplayer({
-    name: playerName,
-    avatar: playerAvatar,
-    rx: playerPos.x / 960,
-    ry: playerPos.y / 600,
-    direction: "down",
-    zone: "overworld",
-  });
-
-  const handleSendLocalChat = (text: string) => {
-    if (!text.trim()) return;
-    sendChat(text.trim());
-    setChatInput("");
-  };
-
-  const sendMoveRef = useRef(sendMove);
-  useEffect(() => {
-    sendMoveRef.current = sendMove;
-  }, [sendMove]);
-
-  // Click / Touch indicator marker
-  const [clickMarker, setClickMarker] = useState<{ x: number; y: number; id: number } | null>(null);
-
-  // Virtual D-Pad Touch State for Mobile
-  const dpadDir = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
-
-  // Target walking refs
-  const targetPosRef = useRef<{ x: number; y: number } | null>(null);
-  const targetBuildingKeyRef = useRef<string | null>(null);
-  const playerPosRef = useRef<{ x: number; y: number }>({ x: 480, y: 350 });
-  const lastClosedZoneRef = useRef<string | null>(null);
+  }, [playerPos, chestCooldowns, dismissedCooldowns, activeChest, activeZone, showQuestLog, showLeaderboard, showAvatarPicker, activeNpc]);
 
   // Stop audio on component unmount
   useEffect(() => {
@@ -324,15 +371,17 @@ export function OverworldMapPage() {
           };
         })
       );
-    }, 3000);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Check Building Box Collisions
+  // Check building collision (virtual bounds)
   const checkBuildingCollision = useCallback(
     (px: number, py: number) => {
+      if (activeChest || activeZone || showQuestLog || showLeaderboard || showAvatarPicker || activeNpc) return;
+
       for (const z of ZONES) {
-        const dist = Math.hypot(z.x - px, z.y - py);
+        const dist = Math.hypot(z.x - px, (z.y + 35) - py);
 
         if (dist <= 75) {
           if (progress.unlocked[z.key] && lastClosedZoneRef.current !== z.key) {
@@ -345,7 +394,7 @@ export function OverworldMapPage() {
         }
       }
     },
-    [progress.unlocked]
+    [progress.unlocked, activeChest, activeZone, showQuestLog, showLeaderboard, showAvatarPicker, activeNpc]
   );
 
   // Check NPC Proximity
@@ -359,6 +408,32 @@ export function OverworldMapPage() {
       }
     },
     [npcs]
+  );
+
+  // Check Chest Proximity & Real-time Walking Collision (Auto-Open on reach)
+  const checkChestCollision = useCallback(
+    (px: number, py: number) => {
+      if (activeChest || activeZone || showQuestLog || showLeaderboard || showAvatarPicker || activeNpc) return;
+
+      for (const chest of CHESTS) {
+        const cd1 = chestCooldowns[chest.id] || 0;
+        const cd2 = dismissedCooldowns[chest.id] || 0;
+        const cdUntil = Math.max(cd1, cd2);
+        const dist = Math.hypot(px - chest.x, py - chest.y);
+
+        if (dist <= 55) {
+          if (cdUntil <= Date.now() && lastClosedChestRef.current !== chest.id) {
+            handleOpenChest(chest);
+            break;
+          }
+        } else if (dist > 85) {
+          if (lastClosedChestRef.current === chest.id) {
+            lastClosedChestRef.current = null;
+          }
+        }
+      }
+    },
+    [activeChest, activeZone, showQuestLog, showLeaderboard, showAvatarPicker, activeNpc, chestCooldowns]
   );
 
   // High-performance rAF movement loop
@@ -425,6 +500,9 @@ export function OverworldMapPage() {
         checkNpcProximity(nx, ny);
       }
 
+      // Check chest collision on every frame (whether walking or arriving)
+      checkChestCollision(nx, ny);
+
       setIsWalking(moving);
       animFrameIdRef.current = requestAnimationFrame(loop);
     };
@@ -433,7 +511,7 @@ export function OverworldMapPage() {
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
     };
-  }, [checkBuildingCollision, checkNpcProximity]);
+  }, [checkBuildingCollision, checkNpcProximity, checkChestCollision]);
 
   // Keyboard events
   useEffect(() => {
@@ -495,6 +573,24 @@ export function OverworldMapPage() {
 
     setActiveZone(null);
     setActiveNpc(null);
+  }
+
+  function handleChestClick(chest: ChestItem, e: React.MouseEvent) {
+    e.stopPropagation();
+    const cdUntil = chestCooldowns[chest.id] || 0;
+    if (cdUntil > Date.now()) return;
+
+    const dist = Math.hypot(playerPos.x - chest.x, playerPos.y - chest.y);
+    if (dist < 45) {
+      handleOpenChest(chest);
+    } else {
+      lastClosedChestRef.current = null;
+      targetPosRef.current = { x: chest.x, y: chest.y };
+      setClickMarker({ x: chest.x, y: chest.y, id: Date.now() });
+
+      setActiveZone(null);
+      setActiveNpc(null);
+    }
   }
 
   function handleCloseZoneModal() {
@@ -841,7 +937,9 @@ export function OverworldMapPage() {
 
         {/* 🧰 Protein Treasure Chests (4 Spawns) */}
         {CHESTS.map((chest) => {
-          const cdUntil = chestCooldowns[chest.id] || 0;
+          const cd1 = chestCooldowns[chest.id] || 0;
+          const cd2 = dismissedCooldowns[chest.id] || 0;
+          const cdUntil = Math.max(cd1, cd2);
           const isCooldown = cdUntil > nowTime;
           const remainSec = Math.max(0, Math.ceil((cdUntil - nowTime) / 1000));
           const mins = Math.floor(remainSec / 60);
@@ -851,17 +949,13 @@ export function OverworldMapPage() {
           const chestPx = (chest.x / 960) * mapBounds.w;
           const chestPy = (chest.y / 600) * mapBounds.h;
           const dist = Math.hypot(playerPos.x - chest.x, playerPos.y - chest.y);
-          const isNear = dist < 90;
+          const isNear = dist < 65;
 
           return (
             <div
               key={chest.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenChest(chest);
-              }}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 z-35 group ${
-                isCooldown ? "opacity-80" : "hover:scale-125 active:scale-95"
+              className={`absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-300 z-35 pointer-events-none ${
+                isCooldown ? "opacity-80" : ""
               }`}
               style={{
                 left: `${chestPx}px`,
@@ -874,33 +968,37 @@ export function OverworldMapPage() {
               )}
 
               <div className="relative flex flex-col items-center">
-                {/* Chest Status Label Badge */}
-                <div
-                  className={`mb-1.5 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs md:text-sm font-black shadow-2xl border-2 backdrop-blur-md whitespace-nowrap transition-transform ${
-                    isCooldown
-                      ? "bg-slate-950/95 text-amber-300 border-amber-500/60"
-                      : isNear
-                      ? "bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 border-white scale-110 animate-bounce shadow-amber-500/50"
-                      : "bg-slate-950/90 text-amber-300 border-amber-400 shadow-amber-500/30"
-                  }`}
-                >
-                  {isCooldown ? (
-                    <>
-                      <span className="text-base">⏳</span>
-                      <span>คูลดาวน์</span>
-                      <span className="font-mono text-amber-300 font-bold">{timeStr}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-base">{chest.icon}</span>
-                      <span>{isNear ? "✨ คลิกเปิดกล่องชีวะ!" : chest.name}</span>
-                    </>
-                  )}
-                </div>
+                {/* Chest Status Label Badge (Only show when in cooldown or when walking near) */}
+                {(isCooldown || isNear) && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isCooldown) {
+                        lastClosedChestRef.current = null;
+                        handleOpenChest(chest);
+                      }
+                    }}
+                    className={`mb-1.5 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs md:text-sm font-black shadow-2xl border-2 backdrop-blur-md whitespace-nowrap transition-transform pointer-events-auto cursor-pointer ${
+                      isCooldown
+                        ? "bg-slate-950/95 text-amber-300 border-amber-500/60"
+                        : "bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 border-white scale-110 animate-bounce shadow-amber-500/50 hover:scale-125"
+                    }`}
+                  >
+                    {isCooldown ? (
+                      <>
+                        <span className="text-base">⏳</span>
+                        <span>คูลดาวน์</span>
+                        <span className="font-mono text-amber-300 font-bold">{timeStr}</span>
+                      </>
+                    ) : (
+                      <span>✨ เปิดกล่อง</span>
+                    )}
+                  </div>
+                )}
 
-                {/* Massive 3D Chest Icon */}
+                {/* 3D Chest Icon */}
                 <div
-                  className={`relative flex h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 items-center justify-center transition-all ${
+                  className={`relative flex h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 items-center justify-center transition-all ${
                     isCooldown ? "scale-90 opacity-80" : "group-hover:scale-110 group-hover:rotate-3"
                   }`}
                 >
@@ -1237,7 +1335,7 @@ export function OverworldMapPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg rounded-3xl border-3 border-amber-400 bg-slate-950 p-6 sm:p-8 shadow-2xl shadow-amber-500/20 text-white space-y-5">
             <button
-              onClick={() => setActiveChest(null)}
+              onClick={handleCloseChest}
               className="absolute right-4 top-4 h-8 w-8 rounded-full bg-slate-800 text-slate-300 hover:text-white font-bold flex items-center justify-center cursor-pointer transition"
             >
               ✕
@@ -1309,7 +1407,7 @@ export function OverworldMapPage() {
 
                 <div className="pt-2 flex justify-end">
                   <button
-                    onClick={() => setActiveChest(null)}
+                    onClick={handleCloseChest}
                     className="rounded-xl bg-amber-500 text-slate-950 px-5 py-2 text-xs font-black hover:bg-amber-400 transition cursor-pointer shadow-lg"
                   >
                     รับทราบ (ปิดกล่อง) ⏳

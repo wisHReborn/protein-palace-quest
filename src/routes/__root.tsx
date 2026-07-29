@@ -36,28 +36,54 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("Root ErrorComponent caught:", error);
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  const handleClearCacheAndReload = async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) await reg.unregister();
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        for (const key of keys) await caches.delete(key);
+      }
+    } catch {}
+    window.location.reload();
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-xl text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+        {error && (
+          <div className="mt-4 rounded-xl bg-slate-900 p-4 border border-rose-500/50 text-left text-xs font-mono text-rose-300 overflow-x-auto max-h-60">
+            <div className="font-bold text-rose-400 mb-1">{error?.name}: {error?.message}</div>
+            <pre className="text-[10px] opacity-80 whitespace-pre-wrap">{error?.stack}</pre>
+          </div>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button
+            onClick={handleClearCacheAndReload}
+            className="inline-flex items-center justify-center rounded-md bg-rose-600 text-white px-4 py-2 text-sm font-bold shadow-lg hover:bg-rose-700 transition-colors cursor-pointer"
+          >
+            🧹 ล้างแคชเบราว์เซอร์และรีโหลดหน้าเว็บ (Clear Cache & Reload)
+          </button>
           <button
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
           >
             Try again
           </button>
