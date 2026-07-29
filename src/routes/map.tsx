@@ -130,7 +130,9 @@ export function OverworldMapPage() {
   const [chestAnswered, setChestAnswered] = useState<{ isCorrect: boolean; rewardPoints: number } | null>(null);
   const [nowTime, setNowTime] = useState<number>(Date.now());
 
-  // Audio & Viewport States
+  // Audio, Viewport & Weather States
+  type WeatherMode = "day" | "sunset" | "night" | "rain";
+  const [weatherMode, setWeatherMode] = useState<WeatherMode>("day");
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [mapBounds, setMapBounds] = useState({ w: 1200, h: 800 });
 
@@ -645,56 +647,56 @@ export function OverworldMapPage() {
       </div>
 
       {/* Responsive Top HUD Bar */}
-      <header className="absolute top-2.5 left-2.5 right-2.5 z-30 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-1.5 md:gap-2 pointer-events-auto">
+      <header className="absolute top-2.5 left-2.5 right-2.5 z-30 flex flex-wrap items-center justify-between gap-1.5 pointer-events-none">
+        <div className="flex items-center gap-1 sm:gap-2 pointer-events-auto">
           <Link
             to="/"
-            className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-sm font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition"
+            className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] sm:text-xs md:text-sm font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition whitespace-nowrap"
           >
-            ← หน้าหลัก
+            ← <span className="hidden sm:inline">หน้าหลัก</span>
           </Link>
 
           <button
             onClick={() => setShowAvatarPicker(true)}
-            className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition border border-pink-300"
+            className="flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] sm:text-xs font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition border border-pink-300 whitespace-nowrap"
           >
-            <img src={playerAvatar} alt="Avatar" className="h-4.5 w-4.5 rounded-full object-cover border border-berry" />
-            <span className="max-w-[80px] sm:max-w-[120px] truncate">👤 {playerName}</span>
+            <img src={playerAvatar} alt="Avatar" className="h-4 w-4 rounded-full object-cover border border-berry" />
+            <span className="max-w-[65px] sm:max-w-[120px] truncate">👤 {playerName}</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 md:gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 pointer-events-auto flex-wrap">
           <button
             onClick={() => setShowQuestLog(true)}
-            className="flex items-center gap-1 rounded-full bg-amber-400 text-slate-950 px-2.5 py-1 text-[11px] md:text-xs font-black shadow-lg hover:bg-amber-300 transition"
+            className="flex items-center gap-1 rounded-full bg-amber-400 text-slate-950 px-2 py-1 text-[10px] sm:text-xs font-black shadow-lg hover:bg-amber-300 transition whitespace-nowrap"
           >
-            📌 ภารกิจเควสต์
+            📌 <span className="hidden sm:inline">ภารกิจ</span>เควสต์
           </button>
 
           <button
             onClick={() => setShowLeaderboard(true)}
-            className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-black text-amber-600 shadow-lg backdrop-blur hover:bg-white transition"
+            className="flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] sm:text-xs font-black text-amber-600 shadow-lg backdrop-blur hover:bg-white transition whitespace-nowrap"
           >
-            🏆 อันดับผู้เล่น
+            🏆 <span className="hidden sm:inline">อันดับ</span>
           </button>
 
           {/* Online Players Counter */}
-          <div className="flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-1 text-[11px] md:text-xs font-black text-emerald-400 border border-emerald-500/40 shadow-lg backdrop-blur animate-pulse">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>ออนไลน์ {remotePlayers.length + 1} คน</span>
+          <div className="flex items-center gap-1 rounded-full bg-slate-900/90 px-2.5 py-1 text-[10px] sm:text-xs font-black text-emerald-400 border border-emerald-500/40 shadow-lg backdrop-blur animate-pulse whitespace-nowrap">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span>🟢 {remotePlayers.length + 1}<span className="hidden sm:inline"> คน</span></span>
           </div>
 
-          <div className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-black text-amber-600 shadow-lg backdrop-blur">
+          <div className="flex items-center gap-0.5 rounded-full bg-white/95 px-2 py-1 text-[10px] sm:text-xs font-black text-amber-600 shadow-lg backdrop-blur">
             ⭐ {totalStars}
           </div>
 
-          <div className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-black text-berry shadow-lg backdrop-blur">
+          <div className="flex items-center gap-0.5 rounded-full bg-white/95 px-2 py-1 text-[10px] sm:text-xs font-black text-berry shadow-lg backdrop-blur">
             💎 {totalScore}
           </div>
 
           <button
             onClick={handleToggleFullscreen}
-            className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] md:text-xs font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition"
+            className="flex items-center justify-center rounded-full bg-white/95 h-6 w-6 sm:h-7 sm:w-7 text-[10px] sm:text-xs font-extrabold text-berry shadow-lg backdrop-blur hover:bg-white transition"
             title="สลับเต็มหน้าจอ Fullscreen"
           >
             {isFullscreen ? "🔲" : "🖥️"}
@@ -702,18 +704,46 @@ export function OverworldMapPage() {
         </div>
       </header>
 
-      {/* Compact Circular RPG Music Toggle Button (Music only plays when clicked) */}
-      <button
-        onClick={toggleMusic}
-        className={`fixed bottom-4 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-2xl backdrop-blur transition-all border-2 ${
-          isMusicPlaying
-            ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white border-white ring-4 ring-pink-400/50 scale-105"
-            : "bg-white/95 text-berry border-pink-300 hover:bg-white"
-        }`}
-        title={isMusicPlaying ? "ปิดเพลงประกอบ RPG" : "เปิดเพลงประกอบ RPG"}
-      >
-        {isMusicPlaying ? "🎵" : "🔇"}
-      </button>
+      {/* Compact Circular RPG Music Toggle & Weather Controls */}
+      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
+        {/* ☀️🌅🌙🌧️ Floating Weather & Ambient Controls */}
+        <div className="flex items-center gap-1 rounded-full bg-slate-900/90 p-1 border-2 border-pink-400/50 shadow-2xl backdrop-blur-md">
+          {(
+            [
+              { mode: "day", label: "☀️", fullLabel: "☀️ กลางวัน", title: "กลางวัน สว่างแจ่มใส" },
+              { mode: "sunset", label: "🌅", fullLabel: "🌅 ยามเย็น", title: "อาทิตย์อัสดง สีส้มอบอุ่น" },
+              { mode: "night", label: "🌙", fullLabel: "🌙 ราตรี", title: "ราตรีเรืองแสง Bioluminescence" },
+              { mode: "rain", label: "🌧️", fullLabel: "🌧️ ฝนตก", title: "ฝนตกโมเลกุลน้ำ" },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.mode}
+              onClick={() => setWeatherMode(item.mode)}
+              title={item.title}
+              className={`rounded-full px-2 py-1 text-[10px] sm:text-xs font-black transition-all cursor-pointer ${
+                weatherMode === item.mode
+                  ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md scale-105"
+                  : "text-slate-300 hover:text-white hover:bg-slate-800"
+              }`}
+            >
+              <span className="sm:hidden">{item.label}</span>
+              <span className="hidden sm:inline">{item.fullLabel}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={toggleMusic}
+          className={`flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full text-lg sm:text-xl shadow-2xl backdrop-blur transition-all border-2 ${
+            isMusicPlaying
+              ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white border-white ring-4 ring-pink-400/50 scale-105"
+              : "bg-white/95 text-berry border-pink-300 hover:bg-white"
+          }`}
+          title={isMusicPlaying ? "ปิดเพลงประกอบ RPG" : "เปิดเพลงประกอบ RPG"}
+        >
+          {isMusicPlaying ? "🎵" : "🔇"}
+        </button>
+      </div>
 
       {/* Touch D-Pad Overlay (Visible on Mobile & iPad) */}
       <div className="absolute bottom-4 left-4 z-40 flex flex-col items-center gap-1 touch-none opacity-80 hover:opacity-100 transition-opacity scale-90 sm:scale-100 origin-bottom-left lg:hidden">
@@ -772,6 +802,61 @@ export function OverworldMapPage() {
           }}
         >
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30 pointer-events-none" />
+
+        {/* ☀️🌅🌙🌧️ Dynamic Time of Day & Weather Tint Overlay */}
+        {weatherMode === "sunset" && (
+          <div className="absolute inset-0 bg-gradient-to-tr from-amber-600/35 via-rose-500/25 to-purple-950/40 mix-blend-color-burn pointer-events-none z-10 transition-all duration-700 animate-sunset-glow" />
+        )}
+        {weatherMode === "night" && (
+          <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/80 via-purple-950/65 to-slate-950/85 mix-blend-multiply pointer-events-none z-10 transition-all duration-700" />
+        )}
+        {weatherMode === "rain" && (
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 to-cyan-950/50 mix-blend-multiply pointer-events-none z-10 transition-all duration-700" />
+        )}
+
+        {/* 🌧️ Dynamic Falling Raindrops Overlay */}
+        {weatherMode === "rain" && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-15">
+            {Array.from({ length: 30 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="absolute w-0.5 h-12 bg-gradient-to-b from-cyan-200/80 to-transparent rounded-full animate-rain-drop"
+                style={{
+                  left: `${(idx / 30) * 100}%`,
+                  top: `${-20 - (idx % 8) * 15}px`,
+                  animationDuration: `${0.6 + (idx % 5) * 0.15}s`,
+                  animationDelay: `${(idx % 10) * 0.1}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 🌙 Bioluminescent Peptide Glow Particles (Night Mode) */}
+        {weatherMode === "night" && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-15">
+            {[
+              { x: 0.18, y: 0.2, color: "bg-cyan-400 shadow-cyan-400" },
+              { x: 0.82, y: 0.22, color: "bg-pink-400 shadow-pink-400" },
+              { x: 0.5, y: 0.35, color: "bg-amber-300 shadow-amber-300" },
+              { x: 0.25, y: 0.65, color: "bg-teal-300 shadow-teal-300" },
+              { x: 0.75, y: 0.68, color: "bg-rose-400 shadow-rose-400" },
+              { x: 0.48, y: 0.78, color: "bg-purple-300 shadow-purple-300" },
+              { x: 0.12, y: 0.85, color: "bg-cyan-300 shadow-cyan-300" },
+              { x: 0.88, y: 0.82, color: "bg-emerald-300 shadow-emerald-300" },
+            ].map((p, idx) => (
+              <div
+                key={idx}
+                className={`absolute h-3 w-3 rounded-full ${p.color} shadow-lg blur-[1px] animate-bio-pulse`}
+                style={{
+                  left: `${p.x * mapBounds.w}px`,
+                  top: `${p.y * mapBounds.h}px`,
+                  animationDelay: `${idx * 0.4}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Touch Target Indicator Ring */}
         {clickMarker && (
@@ -1115,7 +1200,7 @@ export function OverworldMapPage() {
       {/* Daily Quest Log Modal */}
       {showQuestLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="card-soft max-w-md w-full p-6 relative border-4 border-amber-400 shadow-2xl">
+          <div className="card-soft max-w-md w-full p-4 sm:p-6 relative border-4 border-amber-400 shadow-2xl max-h-[85vh] overflow-y-auto">
             <button
               onClick={() => setShowQuestLog(false)}
               className="absolute right-3 top-3 text-xs font-bold text-muted-foreground hover:text-berry"
@@ -1153,7 +1238,7 @@ export function OverworldMapPage() {
       {/* MMORPG Player Leaderboard Modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="card-soft max-w-lg w-full p-6 relative border-4 border-amber-400 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="card-soft max-w-lg w-full p-4 sm:p-6 relative border-4 border-amber-400 shadow-2xl max-h-[85vh] overflow-y-auto">
             <button
               onClick={() => setShowLeaderboard(false)}
               className="absolute right-3 top-3 text-xs font-bold text-muted-foreground hover:text-berry"
@@ -1332,8 +1417,8 @@ export function OverworldMapPage() {
 
       {/* 🧰 Protein Treasure Chest Quiz Modal */}
       {activeChest && activeChest.question && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl border-3 border-amber-400 bg-slate-950 p-6 sm:p-8 shadow-2xl shadow-amber-500/20 text-white space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl border-3 border-amber-400 bg-slate-950 p-4 sm:p-6 md:p-8 shadow-2xl shadow-amber-500/20 text-white space-y-4 max-h-[90vh] overflow-y-auto">
             <button
               onClick={handleCloseChest}
               className="absolute right-4 top-4 h-8 w-8 rounded-full bg-slate-800 text-slate-300 hover:text-white font-bold flex items-center justify-center cursor-pointer transition"
